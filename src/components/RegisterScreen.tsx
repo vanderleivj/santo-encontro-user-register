@@ -3,6 +3,7 @@ import { useRegister } from "../hooks/useRegister";
 import InactiveUserScreen from "./InactiveUserScreen";
 import ScreenLayout from "./ScreenLayout";
 import { RegisterHeader } from "./register/RegisterHeader";
+import { SupportContact } from "./register/SupportContact";
 import { PersonalDataSection } from "./register/PersonalDataSection";
 import { AddressSection } from "./register/AddressSection";
 import { ReligiousInfoSection } from "./register/ReligiousInfoSection";
@@ -56,6 +57,10 @@ export default function RegisterScreen() {
   return (
     <ScreenLayout>
       <RegisterHeader onOpenLogin={() => setShowLoginModal(true)} />
+
+      <div className="mb-6 lg:mb-8">
+        <SupportContact />
+      </div>
 
       <form
         onSubmit={handleSubmit(onSubmit)}
