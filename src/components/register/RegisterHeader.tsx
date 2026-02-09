@@ -26,7 +26,7 @@ export function RegisterHeader({ onOpenLogin }: RegisterHeaderProps) {
         </h1>
         <div className="w-20 h-0.5 lg:w-24 lg:h-1 bg-gradient-to-r from-blue-600 to-indigo-600 mx-auto rounded-full"></div>
         <p className="text-slate-600 text-base lg:text-lg font-light max-w-md mx-auto leading-relaxed">
-          Juntos na fé, unidos pelo amor
+        Um ambiente sério exige compromisso. Os planos existem para proteger, organizar e fortalecer encontros com propósito.
         </p>
       </div>
 

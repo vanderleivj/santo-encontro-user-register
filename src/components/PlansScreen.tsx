@@ -23,6 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
+import { SupportContact } from "./register/SupportContact";
 
 export type PaymentMethod = "boleto_card" | "pix";
 
@@ -947,6 +948,10 @@ export default function PlansScreen() {
                   )}
                 </div>
               </div>
+            </div>
+
+            <div className="my-6">
+              <SupportContact />
             </div>
 
             {/* Seção de Upload de Comprovante */}
