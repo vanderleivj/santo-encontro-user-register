@@ -9,12 +9,13 @@ export const FormattedPhoneInput = ({
   control,
   errors,
 }: FormattedPhoneInputProps) => {
+  const inputBase =
+    "w-full bg-slate-50 border-none focus:ring-2 focus:ring-register-primary/20 rounded-2xl px-4 py-3.5 text-sm transition-all duration-200";
+  const inputError = "ring-2 ring-red-200 focus:ring-red-500/30";
+
   return (
-    <div className="space-y-3">
-      <label
-        htmlFor="phone"
-        className="block text-sm font-medium text-gray-700"
-      >
+    <div className="space-y-1.5">
+      <label htmlFor="phone" className="text-xs font-medium text-slate-500 ml-1 block">
         WhatsApp
       </label>
       <input
@@ -30,14 +31,10 @@ export const FormattedPhoneInput = ({
             .substring(0, 15);
           e.target.value = formatted;
         }}
-        className={`w-full px-4 py-3 text-base rounded-full border transition-all duration-200 bg-white shadow-sm ${
-          errors.phone
-            ? "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-100"
-            : "border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-        }`}
+        className={`${inputBase} ${errors.phone ? inputError : ""}`}
       />
       {errors.phone && (
-        <p className="text-red-600 text-sm mt-1">
+        <p className="text-red-600 text-sm mt-1 ml-1">
           {typeof errors.phone.message === "string"
             ? errors.phone.message
             : "Telefone inválido"}

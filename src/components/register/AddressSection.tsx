@@ -1,8 +1,12 @@
 import { Controller } from "react-hook-form";
 import type { Control, FieldErrors } from "react-hook-form";
+import { Home } from "lucide-react";
 import { FormInput } from "./FormInput";
 import { FormattedCEPInput } from "../FormattedCEPInput";
 import { statesList } from "../../utils/states-list";
+
+const selectBase =
+  "w-full bg-slate-50 border-none focus:ring-2 focus:ring-register-primary/20 rounded-2xl px-4 py-3.5 text-sm appearance-none transition-all duration-200";
 
 interface AddressSectionProps {
   readonly control: Control<any>;
@@ -17,35 +21,23 @@ export function AddressSection({
   fetchAddressFromCEP,
   isLoadingCep,
 }: AddressSectionProps) {
-  const getInputClasses = (fieldError: any, isLoading: boolean = false) => {
-    if (isLoading) {
-      return "bg-slate-100/80 border-slate-200";
-    }
-    if (fieldError) {
-      return "border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-100 bg-white/80 backdrop-blur-sm";
-    }
-    return "border-slate-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-100 bg-white/80 backdrop-blur-sm";
-  };
-
   return (
-    <div className="bg-white/60 backdrop-blur-sm border border-slate-200/50 rounded-2xl p-6 shadow-sm">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center">
-          <span className="text-lg">🏠</span>
+    <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-5">
+      <div className="flex items-center gap-3 mb-2">
+        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-amber-50 text-amber-500">
+          <Home className="w-5 h-5" aria-hidden />
         </div>
-        <h3 className="text-slate-900 font-semibold text-lg">Endereço</h3>
+        <h2 className="font-semibold text-lg text-slate-900">Endereço</h2>
       </div>
 
-      <div className="mt-4">
+      <div className="space-y-4">
         <FormattedCEPInput
           control={control}
           errors={errors}
           fetchAddress={fetchAddressFromCEP}
           isLoadingCep={isLoadingCep}
         />
-      </div>
 
-      <div className="mt-4">
         <FormInput
           control={control}
           name="address"
@@ -54,12 +46,9 @@ export function AddressSection({
           errors={errors}
           required
           disabled={isLoadingCep}
-          getInputClasses={getInputClasses}
           isLoading={isLoadingCep}
         />
-      </div>
 
-      <div className="mt-4">
         <FormInput
           control={control}
           name="complement"
@@ -67,12 +56,9 @@ export function AddressSection({
           placeholder="Apartamento, bloco, etc."
           errors={errors}
           disabled={isLoadingCep}
-          getInputClasses={getInputClasses}
           isLoading={isLoadingCep}
         />
-      </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
         <FormInput
           control={control}
           name="city"
@@ -81,14 +67,13 @@ export function AddressSection({
           errors={errors}
           required
           disabled={isLoadingCep}
-          getInputClasses={getInputClasses}
           isLoading={isLoadingCep}
         />
 
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <label
             htmlFor="state"
-            className="block text-sm font-medium text-slate-700"
+            className="text-xs font-medium text-slate-500 ml-1 block"
           >
             Estado <span className="text-red-500">*</span>
           </label>
@@ -101,10 +86,9 @@ export function AddressSection({
                 value={value}
                 onChange={onChange}
                 disabled={isLoadingCep}
-                className={`w-full px-4 py-3 text-base rounded-full border transition-all duration-200 ${getInputClasses(
-                  errors.state,
-                  isLoadingCep
-                )}`}
+                className={`${selectBase} ${
+                  errors.state ? "ring-2 ring-red-200" : ""
+                } ${isLoadingCep ? "bg-slate-100/80" : ""}`}
               >
                 <option value="">Selecione o estado</option>
                 {statesList.map((state) => (
@@ -116,7 +100,7 @@ export function AddressSection({
             )}
           />
           {errors.state && (
-            <p className="text-red-600 text-sm mt-1">
+            <p className="text-red-600 text-sm mt-1 ml-1">
               {errors.state.message as string}
             </p>
           )}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Lock } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import {
   Dialog,
@@ -93,19 +93,22 @@ export function LoginModal({
     }
   };
 
+  const inputBase =
+    "w-full bg-slate-50 border-none focus:ring-2 focus:ring-register-primary/20 rounded-2xl px-4 py-3.5 text-sm transition-all duration-200 disabled:bg-slate-100 disabled:cursor-not-allowed";
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md rounded-3xl border-slate-100 shadow-sm">
         <DialogHeader className="space-y-3">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
-              <span className="text-xl">🔐</span>
+            <div className="w-10 h-10 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center">
+              <Lock className="w-5 h-5" aria-hidden />
             </div>
-            <DialogTitle className="text-2xl font-bold text-slate-900">
+            <DialogTitle className="text-xl font-semibold text-slate-900">
               {isManualTrigger ? "Fazer Login" : "Usuário já cadastrado"}
             </DialogTitle>
           </div>
-          <DialogDescription className="text-slate-600 text-sm leading-relaxed">
+          <DialogDescription className="text-slate-500 text-sm leading-relaxed">
             {isManualTrigger
               ? "Digite suas credenciais para acessar sua conta e continuar."
               : "Identificamos que este email já está cadastrado. Se você já possui uma conta, faça login para continuar."}
@@ -113,10 +116,10 @@ export function LoginModal({
         </DialogHeader>
 
         {error && (
-          <div className="mt-4 p-4 bg-red-50/80 border border-red-200/50 rounded-xl">
+          <div className="mt-4 p-4 bg-red-50 border border-red-200/50 rounded-2xl">
             <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center">
-                <span className="text-xs">⚠️</span>
+              <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <span className="text-xs" aria-hidden>⚠️</span>
               </div>
               <p className="text-red-800 text-sm font-medium">{error}</p>
             </div>
@@ -124,10 +127,10 @@ export function LoginModal({
         )}
 
         <form onSubmit={handleLogin} className="space-y-5 mt-6">
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label
               htmlFor="modal-email"
-              className="block text-sm font-medium text-slate-700"
+              className="text-xs font-medium text-slate-500 ml-1 block"
             >
               Email <span className="text-red-500">*</span>
             </label>
@@ -139,14 +142,14 @@ export function LoginModal({
               placeholder="seu.email@exemplo.com"
               required
               disabled={isLoading || !!userEmail}
-              className="w-full px-4 py-3 text-base rounded-full border border-slate-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-100 bg-white/90 backdrop-blur-sm transition-all disabled:bg-slate-100 disabled:cursor-not-allowed"
+              className={inputBase}
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5 relative">
             <label
               htmlFor="modal-password"
-              className="block text-sm font-medium text-slate-700"
+              className="text-xs font-medium text-slate-500 ml-1 block"
             >
               Senha <span className="text-red-500">*</span>
             </label>
@@ -159,36 +162,41 @@ export function LoginModal({
                 placeholder="Sua senha"
                 required
                 disabled={isLoading}
-                className="w-full px-4 py-3 pr-12 text-base rounded-full border border-slate-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-100 bg-white/90 backdrop-blur-sm transition-all disabled:bg-slate-100 disabled:cursor-not-allowed"
+                className={`${inputBase} pr-12`}
               />
               <button
                 type="button"
                 onClick={() => setIsPasswordVisible(!isPasswordVisible)}
                 disabled={isLoading}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50"
+                aria-label={isPasswordVisible ? "Ocultar senha" : "Mostrar senha"}
               >
-                {isPasswordVisible ? <EyeOff size={20} /> : <Eye size={20} />}
+                {isPasswordVisible ? (
+                  <EyeOff className="w-5 h-5" />
+                ) : (
+                  <Eye className="w-5 h-5" />
+                )}
               </button>
             </div>
           </div>
 
-          <DialogFooter className="flex gap-3 pt-4 sm:justify-start">
+          <DialogFooter className="flex flex-col gap-3 pt-4 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="flex-1 px-4 py-3 text-base font-medium rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full sm:flex-1 px-4 py-3.5 text-sm font-medium rounded-2xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="flex-1 px-4 py-3 text-base font-semibold rounded-xl bg-slate-900 text-white hover:bg-slate-800 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+              className="w-full sm:flex-1 bg-slate-800 cursor-pointer px-4 py-3.5 text-sm font-semibold rounded-2xl bg-register-primary text-white hover:bg-transparent hover:text-slate-800 hover:border-2 hover:border-slate-800 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <div className="flex items-center justify-center gap-2">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-4 h-4  border-2 border-white border-t-transparent rounded-full animate-spin" />
                   Entrando...
                 </div>
               ) : (
