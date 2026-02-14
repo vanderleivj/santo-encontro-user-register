@@ -8,8 +8,18 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', 'sans-serif'],
+        display: ['Manrope', 'sans-serif'],
+        register: ['Playfair Display', 'serif'],
       },
       colors: {
+        primary: '#0f49bd',
+        'background-light': '#fcfcfd',
+        'background-dark': '#101622',
+        gold: '#d4af37',
+        // Tema da página de cadastro (referência layout)
+        'register-primary': '#1A233A',
+        'register-secondary': '#3B5284',
+        'register-bg': '#F8FAFC',
         'santo-blue': {
           50: '#eff6ff',
           100: '#dbeafe',

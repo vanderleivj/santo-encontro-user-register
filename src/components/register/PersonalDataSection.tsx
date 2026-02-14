@@ -1,4 +1,5 @@
 import type { Control, FieldErrors } from "react-hook-form";
+import { User } from "lucide-react";
 import { FormInput } from "./FormInput";
 import { PasswordInput } from "./PasswordInput";
 import { RadioGroup } from "./RadioGroup";
@@ -22,66 +23,49 @@ export function PersonalDataSection({
   isConfirmarSenhaVisible,
   setIsConfirmarSenhaVisible,
 }: PersonalDataSectionProps) {
-  const getInputClasses = (fieldError: any) => {
-    if (fieldError) {
-      return "border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-100 bg-white/80 backdrop-blur-sm";
-    }
-    return "border-slate-200 focus:border-slate-400 focus:ring-2 focus:ring-slate-100 bg-white/80 backdrop-blur-sm";
-  };
-
   return (
-    <div className="bg-white/60 backdrop-blur-sm border border-slate-200/50 rounded-2xl p-6 shadow-sm">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center">
-          <span className="text-lg">👤</span>
+    <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-5">
+      <div className="flex items-center gap-3 mb-2">
+        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-50 text-blue-500">
+          <User className="w-5 h-5" aria-hidden />
         </div>
-        <h3 className="text-slate-900 font-semibold text-lg">Dados Pessoais</h3>
+        <h2 className="font-semibold text-lg text-slate-900">Dados Pessoais</h2>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <FormInput
-          control={control}
-          name="firstName"
-          label="Nome"
-          placeholder="Nome"
-          errors={errors}
-          required
-          getInputClasses={getInputClasses}
-        />
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <FormInput
+            control={control}
+            name="firstName"
+            label="Nome"
+            placeholder="Nome"
+            errors={errors}
+            required
+          />
+          <FormInput
+            control={control}
+            name="lastName"
+            label="Sobrenome"
+            placeholder="Sobrenome"
+            errors={errors}
+            required
+          />
+        </div>
 
-        <FormInput
-          control={control}
-          name="lastName"
-          label="Sobrenome"
-          placeholder="Sobrenome"
-          errors={errors}
-          required
-          getInputClasses={getInputClasses}
-        />
-      </div>
-
-      <div className="mt-4">
         <FormattedPhoneInput control={control} errors={errors} />
-      </div>
 
-      <div className="mt-4">
         <FormattedCPFInput control={control} errors={errors} />
-      </div>
 
-      <div className="mt-4">
         <FormInput
           control={control}
           name="email"
-          label="Email"
+          label="E-mail"
           type="email"
           placeholder="seu.email@exemplo.com"
           errors={errors}
           required
-          getInputClasses={getInputClasses}
         />
-      </div>
 
-      <div className="mt-4">
         <RadioGroup
           control={control}
           name="gender"
@@ -94,9 +78,7 @@ export function PersonalDataSection({
           required
           legend
         />
-      </div>
 
-      <div className="mt-4">
         <FormInput
           control={control}
           name="age"
@@ -108,11 +90,8 @@ export function PersonalDataSection({
           min="18"
           max="120"
           helperText="Deve ser maior de 18 anos"
-          getInputClasses={getInputClasses}
         />
-      </div>
 
-      <div className="mt-4">
         <RadioGroup
           control={control}
           name="temFilhos"
@@ -125,9 +104,7 @@ export function PersonalDataSection({
           required
           legend
         />
-      </div>
 
-      <div className="mt-4">
         <PasswordInput
           control={control}
           name="senha"
@@ -137,9 +114,7 @@ export function PersonalDataSection({
           isVisible={isSenhaVisible}
           onToggleVisibility={() => setIsSenhaVisible(!isSenhaVisible)}
         />
-      </div>
 
-      <div className="mt-4">
         <PasswordInput
           control={control}
           name="confirmarSenha"

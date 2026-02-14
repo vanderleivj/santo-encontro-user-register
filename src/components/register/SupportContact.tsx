@@ -14,7 +14,7 @@ export function SupportContact() {
       href={whatsappUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center justify-center gap-3 w-full py-3 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-center shadow-lg hover:shadow-xl transition-all duration-200 border-2 border-emerald-600/30"
+      className="flex items-center justify-center gap-3 w-full py-3.5 px-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-sm text-center shadow-sm hover:shadow-md transition-all duration-200"
     >
       <svg
         className="w-6 h-6 flex-shrink-0"

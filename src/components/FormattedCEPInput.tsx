@@ -13,11 +13,15 @@ export const FormattedCEPInput = ({
   fetchAddress,
   isLoadingCep = false,
 }: FormattedCEPInputProps) => {
+  const inputBase =
+    "w-full bg-slate-50 border-none focus:ring-2 focus:ring-register-primary/20 rounded-2xl px-4 py-3.5 text-sm transition-all duration-200";
+  const inputError = "ring-2 ring-red-200 focus:ring-red-500/30";
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-1.5">
       <label
         htmlFor="zip_code"
-        className="block text-sm font-medium text-gray-700"
+        className="text-xs font-medium text-slate-500 ml-1 block"
       >
         CEP
       </label>
@@ -44,20 +48,18 @@ export const FormattedCEPInput = ({
               await fetchAddress(value);
             }
           }}
-          className={`w-full px-4 py-3 text-base rounded-full border transition-all duration-200 bg-white shadow-sm ${
-            errors.zip_code
-              ? "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-100"
-              : "border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          className={`${inputBase} ${errors.zip_code ? inputError : ""} ${
+            isLoadingCep ? "bg-slate-100/80" : ""
           }`}
         />
         {isLoadingCep && (
-          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-            <div className="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin"></div>
+          <div className="absolute right-4 top-1/2 -translate-y-1/2">
+            <div className="w-4 h-4 border-2 border-slate-300 border-t-transparent rounded-full animate-spin" />
           </div>
         )}
       </div>
       {errors.zip_code && (
-        <p className="text-red-600 text-sm mt-1">
+        <p className="text-red-600 text-sm mt-1 ml-1">
           {typeof errors.zip_code.message === "string"
             ? errors.zip_code.message
             : "CEP inválido"}

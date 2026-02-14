@@ -1,7 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useRegister } from "../hooks/useRegister";
 import InactiveUserScreen from "./InactiveUserScreen";
-import ScreenLayout from "./ScreenLayout";
 import { RegisterHeader } from "./register/RegisterHeader";
 import { SupportContact } from "./register/SupportContact";
 import { PersonalDataSection } from "./register/PersonalDataSection";
@@ -55,19 +54,20 @@ export default function RegisterScreen() {
   }
 
   return (
-    <ScreenLayout>
-      <RegisterHeader onOpenLogin={() => setShowLoginModal(true)} />
+    <div className="min-h-screen bg-register-bg text-slate-900 font-sans">
+      <div className="max-w-md mx-auto px-6 pb-12 pt-4">
+        <RegisterHeader onOpenLogin={() => setShowLoginModal(true)} />
 
-      <div className="mb-6 lg:mb-8">
-        <SupportContact />
-      </div>
+        <div className="mb-6">
+          <SupportContact />
+        </div>
 
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="space-y-6 lg:space-y-8"
-      >
-        <div className="lg:grid lg:grid-cols-2 lg:gap-8 lg:space-y-0 space-y-6">
-          <PersonalDataSection
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="space-y-6"
+        >
+          <div className="space-y-6">
+            <PersonalDataSection
             control={control}
             errors={errors}
             isSenhaVisible={isSenhaVisible}
@@ -93,21 +93,28 @@ export default function RegisterScreen() {
 
         <TermsSection control={control} errors={errors} />
 
-        <button
-          type="submit"
-          className="w-full py-3 text-base font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none bg-slate-900 text-white hover:bg-slate-800"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? (
-            <div className="flex items-center justify-center gap-2">
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              Processando...
-            </div>
-          ) : (
-            "Escolher Plano"
-          )}
-        </button>
-      </form>
+          <div className="pt-4">
+            <button
+              type="submit"
+              className="cursor-pointer w-full bg-slate-800 hover:border-2 hover:border-slate-800 hover:bg-transparent hover:text-slate-800 text-white font-semibold py-4 rounded-2xl shadow-lg transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-register-primary/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <div className="flex items-center justify-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Processando...
+                </div>
+              ) : (
+                "Escolher Plano"
+              )}
+            </button>
+          </div>
+        </form>
+
+        <div className="flex justify-center mt-12 mb-2">
+          <div className="w-32 h-1.5 bg-slate-200 rounded-full" />
+        </div>
+      </div>
 
       <LoginModal
         isOpen={showLoginModal}
@@ -117,6 +124,6 @@ export default function RegisterScreen() {
         isManualTrigger={!existingUserEmail}
         onInactiveUser={handleInactiveUser}
       />
-    </ScreenLayout>
+    </div>
   );
 }
