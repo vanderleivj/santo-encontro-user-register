@@ -12,48 +12,6 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
 );
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
-const INTERNAL_SECRET = Deno.env.get("INTERNAL_SECRET");
-
-function normalizePhone(value: string): string {
-  const digits = value.replace(/\D/g, "");
-  if (digits.length === 10 || digits.length === 11) return "55" + digits;
-  if (digits.startsWith("55") && digits.length >= 12) return digits;
-  return "55" + digits;
-}
-
-async function sendWhatsAppStatus(
-  phone: string | null | undefined,
-  text: string
-): Promise<void> {
-  if (!phone?.trim() || !SUPABASE_URL || !INTERNAL_SECRET) return;
-  const to = normalizePhone(phone.trim());
-  if (to.length < 12) return;
-  try {
-    const res = await fetch(
-      `${SUPABASE_URL}/functions/v1/send-whatsapp-text`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Internal-Secret": INTERNAL_SECRET,
-        },
-        body: JSON.stringify({ to, text }),
-      }
-    );
-    if (!res.ok) {
-      console.warn("sendWhatsAppStatus failed", res.status, await res.text());
-    }
-  } catch (e) {
-    console.warn("sendWhatsAppStatus error", e);
-  }
-}
-
-const WHATSAPP_ACTIVE =
-  "Sua assinatura do Santo Encontro foi ativada! Você já pode acessar o aplicativo.";
-const WHATSAPP_CANCELED =
-  "Sua assinatura do Santo Encontro foi cancelada. Entre em contato para mais informações.";
-
 // Isso é necessário para usar a Web Crypto API no Deno
 const cryptoProvider = Stripe.createSubtleCryptoProvider();
 
@@ -95,7 +53,7 @@ async function handleStripeWebhook(event: Stripe.Event) {
             const customerId = subscription.customer as string;
             const { data: userData, error: userError } = await supabase
               .from("users")
-              .select("id, email, phone")
+              .select("id, email")
               .eq("stripe_customer_id", customerId)
               .single();
 
@@ -115,7 +73,7 @@ async function handleStripeWebhook(event: Stripe.Event) {
                 // Buscar usuário pelo email
                 const { data: userByEmail, error: emailError } = await supabase
                   .from("users")
-                  .select("id, email, phone")
+                  .select("id, email")
                   .eq("email", stripeCustomer.email)
                   .single();
 
@@ -267,7 +225,6 @@ async function handleStripeWebhook(event: Stripe.Event) {
                   );
                 }
               }
-              await sendWhatsAppStatus(userData.phone, WHATSAPP_ACTIVE);
             }
           } catch (error) {
             console.error("Erro ao processar subscription:", error);
@@ -325,12 +282,6 @@ async function handleStripeWebhook(event: Stripe.Event) {
                 );
               } else {
                 console.log("Subscription atualizada no banco de dados");
-                const { data: u } = await supabase
-                  .from("users")
-                  .select("phone")
-                  .eq("id", userId)
-                  .single();
-                await sendWhatsAppStatus(u?.phone, WHATSAPP_ACTIVE);
               }
             }
           } catch (error) {
@@ -378,7 +329,7 @@ async function handleStripeWebhook(event: Stripe.Event) {
             // Atualizar o status no banco de dados também
             const { data: userData, error: userError } = await supabase
               .from("users")
-              .select("id, phone")
+              .select("id")
               .eq("stripe_customer_id", subscription.customer)
               .single();
 
@@ -474,7 +425,6 @@ async function handleStripeWebhook(event: Stripe.Event) {
                   );
                 }
               }
-              await sendWhatsAppStatus(userData.phone, WHATSAPP_ACTIVE);
             }
           } else {
             console.log(
@@ -498,7 +448,7 @@ async function handleStripeWebhook(event: Stripe.Event) {
         // Primeiro, tentar buscar o usuário pelo customer_id
         let { data: userData, error: userError } = await supabase
           .from("users")
-          .select("id, email, phone")
+          .select("id, email")
           .eq("stripe_customer_id", subscriptionCustomerId)
           .single();
 
@@ -519,7 +469,7 @@ async function handleStripeWebhook(event: Stripe.Event) {
             // Buscar usuário pelo email
             const { data: userByEmail, error: emailError } = await supabase
               .from("users")
-              .select("id, email, phone")
+              .select("id, email")
               .eq("email", stripeCustomer.email)
               .single();
 
@@ -651,12 +601,6 @@ async function handleStripeWebhook(event: Stripe.Event) {
                 `Subscription atualizada com sucesso: ${existingSubscription.id}`
               );
             }
-            const msg =
-              subscriptionStatus === "active" ||
-              subscriptionStatus === "trialing"
-                ? WHATSAPP_ACTIVE
-                : WHATSAPP_CANCELED;
-            await sendWhatsAppStatus(userData.phone, msg);
           } else {
             // Criar novo registro
             console.log("Criando nova subscription");
@@ -671,12 +615,6 @@ async function handleStripeWebhook(event: Stripe.Event) {
                 `Subscription criada com sucesso para usuário: ${userData.id}`
               );
             }
-            const msg =
-              subscriptionStatus === "active" ||
-              subscriptionStatus === "trialing"
-                ? WHATSAPP_ACTIVE
-                : WHATSAPP_CANCELED;
-            await sendWhatsAppStatus(userData.phone, msg);
           }
         }
         break;

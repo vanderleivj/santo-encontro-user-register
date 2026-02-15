@@ -246,6 +246,39 @@ serve(async (req) => {
         .eq("id", record.user_id);
     }
 
+    // Notificar usuário por WhatsApp (assinatura ativada)
+    const internalSecret = Deno.env.get("INTERNAL_SECRET");
+    if (internalSecret && supabaseUrl) {
+      const { data: userRow } = await adminClient
+        .from("users")
+        .select("phone")
+        .eq("id", record.user_id)
+        .single();
+      const phone = (userRow?.phone as string)?.trim();
+      if (phone) {
+        const digits = phone.replace(/\D/g, "");
+        const to = digits.length === 10 || digits.length === 11 ? "55" + digits : digits.startsWith("55") ? digits : "55" + digits;
+        if (to.length >= 12) {
+          const message = "Sua assinatura do Santo Encontro foi ativada! Você já pode acessar o aplicativo.";
+          try {
+            const sendRes = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp-text`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-Internal-Secret": internalSecret,
+              },
+              body: JSON.stringify({ to, text: message }),
+            });
+            if (!sendRes.ok) {
+              console.warn("mercadopago-webhook: whatsapp send failed", sendRes.status);
+            }
+          } catch (e) {
+            console.warn("mercadopago-webhook: whatsapp send error", e);
+          }
+        }
+      }
+    }
+
     return ok();
   } catch (e) {
     console.error("mercadopago-webhook error:", e);
