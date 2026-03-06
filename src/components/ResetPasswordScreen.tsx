@@ -1,13 +1,36 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Eye, EyeOff } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import ScreenLayout from "./ScreenLayout";
 
 export default function ResetPasswordScreen() {
-  const APP_URL =
-    (import.meta as any).env?.VITE_PUBLIC_SITE_URL ||
-    globalThis.location.origin;
+  const resolvePublicSiteBaseUrl = () => {
+    const fallback = globalThis.location.origin;
+    const raw = (import.meta as any).env?.VITE_PUBLIC_SITE_URL;
+
+    if (typeof raw !== "string") return fallback;
+    const trimmed = raw.trim();
+    if (!trimmed) return fallback;
+
+    const candidates = [
+      trimmed,
+      // Caso comum em deploy: variável sem protocolo (ex.: "santoencontro.com")
+      `https://${trimmed.replace(/^https?:\/\//, "")}`,
+    ];
+
+    for (const candidate of candidates) {
+      try {
+        const url = new URL(candidate);
+        const basePath = url.pathname.replace(/\/+$/, "");
+        return `${url.origin}${basePath || ""}`;
+      } catch {
+        // tentar próximo candidato
+      }
+    }
+
+    return fallback;
+  };
   const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -19,6 +42,7 @@ export default function ResetPasswordScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isPasswordResetMode, setIsPasswordResetMode] = useState(false);
+  const didJustUpdatePasswordRef = useRef(false);
   const navigate = useNavigate();
   const search = useSearch({ strict: false });
 
@@ -260,8 +284,9 @@ export default function ResetPasswordScreen() {
         }
       }
 
-      // Para outros eventos, revalidar
+      // Para outros eventos, revalidar (não sobrescrever mensagem logo após atualizar senha)
       if (event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
+        if (didJustUpdatePasswordRef.current) return;
         if (session?.user) {
           checkParamsAndSession();
         }
@@ -322,12 +347,56 @@ export default function ResetPasswordScreen() {
   };
 
   const handlePasswordResetRequest = async () => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${APP_URL}/#type=recovery`,
+    const cleanedEmail = email.trim();
+    if (!cleanedEmail) {
+      throw new Error("Informe um email válido.");
+    }
+
+    const baseUrl = resolvePublicSiteBaseUrl();
+    const redirectUrl = new URL(baseUrl);
+    if (!redirectUrl.pathname.endsWith("/")) redirectUrl.pathname += "/";
+    // Usar sempre query (?type=recovery), nunca hash (#type=recovery), para o allow list do Supabase
+    // e para evitar 500 quando o redirect_to não bate com Redirect URLs.
+    redirectUrl.hash = "";
+    redirectUrl.search = "";
+    redirectUrl.searchParams.set("type", "recovery");
+
+    // URL deve estar em Authentication > URL Configuration > Redirect URLs no Supabase
+    // (ex.: http://localhost:5173/** ou https://app.santoencontro.com/**)
+    const redirectTo = redirectUrl.toString();
+
+    const { error } = await supabase.auth.resetPasswordForEmail(cleanedEmail, {
+      redirectTo,
     });
 
     if (error) {
-      throw error;
+      const status = (error as any)?.status;
+      console.error("Erro ao solicitar reset de senha:", {
+        status,
+        message: error.message,
+        redirectTo,
+      });
+      // 500 no /recover: redirect URL não permitida, SMTP não configurado ou template de email inválido
+      if (status === 500) {
+        const origin = (() => {
+          try {
+            return new URL(redirectTo).origin + "/**";
+          } catch {
+            return redirectTo;
+          }
+        })();
+        throw new Error(
+          "Falha no servidor de recuperação de senha. 1) Redirect URLs: em Authentication > URL Configuration adicione: " +
+            origin +
+            " (ou a URL exata: " +
+            redirectTo +
+            "). 2) Se o detalhe for 'Error sending recovery email', configure SMTP em Authentication > Providers > Email (o padrão tem limite de 2 emails/hora). Detalhe: " +
+            (error.message || "unexpected_failure")
+        );
+      }
+      throw new Error(
+        status ? `${error.message} (HTTP ${status})` : error.message
+      );
     }
 
     setMessage(
@@ -353,6 +422,7 @@ export default function ResetPasswordScreen() {
       throw error;
     }
 
+    didJustUpdatePasswordRef.current = true;
     setMessage("Senha atualizada com sucesso! Volte para o aplicativo");
     setMessageType("success");
 
@@ -395,7 +465,7 @@ export default function ResetPasswordScreen() {
 
       {message && (
         <div
-          className={`p-4 rounded-xl mt-6 shadow-sm border ${
+          className={`p-4 rounded-xl my-6 shadow-sm border ${
             messageType === "error"
               ? "bg-red-50/80 border-red-200/50 text-red-800"
               : "bg-emerald-50/80 border-emerald-200/50 text-emerald-800"
