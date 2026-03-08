@@ -21,6 +21,8 @@ interface Plan {
   features: string[];
   is_active: boolean;
   created_at: string;
+  /** Texto exibido abaixo do preço (ex: "por mês", "por ano"). Vem da API. */
+  interval_label?: string | null;
 }
 
 export interface PlanConfig {
@@ -33,6 +35,8 @@ export interface PlanConfig {
   currency: string;
   interval: string | null;
   interval_count: number | null;
+  /** Texto exibido abaixo do preço (ex: "por mês"). Vem da API (campo interval_label). */
+  intervalLabel?: string | null;
   features: string[];
   isPopular?: boolean;
   isFree?: boolean;
@@ -74,6 +78,7 @@ export const usePlans = () => {
           currency: plan.currency,
           interval: plan.interval === "one_time" ? null : plan.interval,
           interval_count: plan.interval === "one_time" ? null : 1,
+          intervalLabel: plan.interval_label ?? "por mês",
           features: plan.features || [],
           isPopular: plan.features?.includes("popular") || false,
           isFree: plan.price === 0,
