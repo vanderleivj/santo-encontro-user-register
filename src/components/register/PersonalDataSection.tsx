@@ -52,7 +52,7 @@ export function PersonalDataSection({
           />
         </div>
 
-        <FormattedPhoneInput control={control} errors={errors} />
+        <FormattedPhoneInput control={control} errors={errors} required />
 
         <FormattedCPFInput control={control} errors={errors} />
 

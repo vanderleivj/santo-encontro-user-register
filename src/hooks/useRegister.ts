@@ -32,16 +32,61 @@ function isValidCPF(cpf: string): boolean {
   return parseInt(cpf.charAt(10)) === digit2;
 }
 
+/** DDDs válidos no Brasil (códigos de área da Anatel) */
+const VALID_DDDS = new Set([
+  11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 24, 27, 28, 31, 32, 33, 34, 35,
+  37, 38, 41, 42, 43, 44, 45, 46, 47, 48, 49, 51, 53, 54, 55, 61, 62, 63, 64,
+  65, 66, 67, 68, 69, 71, 73, 74, 75, 77, 79, 81, 82, 83, 84, 85, 86, 87, 88,
+  89, 91, 92, 93, 94, 95, 96, 97, 98, 99,
+]);
+
+/**
+ * Valida número de celular brasileiro (WhatsApp).
+ * Regras: 11 dígitos (DDD + 9 + 8 dígitos), DDD válido, celular deve começar com 9.
+ * Não existe dígito verificador como no CPF; a validação é apenas estrutural.
+ */
+function isValidBrazilianCellPhone(phone: string): boolean {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(digits)) return false; // todos dígitos iguais
+  const ddd = parseInt(digits.slice(0, 2), 10);
+  if (!VALID_DDDS.has(ddd)) return false;
+  if (digits[2] !== "9") return false; // celular no Brasil começa com 9
+  return true;
+}
+
+/** Considera internacional se começar com + ou tiver mais de 11 dígitos (código do país + número). */
+function isInternationalPhone(val: string): boolean {
+  const trimmed = val?.trim() ?? "";
+  if (trimmed.startsWith("+")) return true;
+  const digits = trimmed.replace(/\D/g, "");
+  return digits.length > 11;
+}
+
+/** Valida número internacional: 10 a 15 dígitos (padrão E.164). */
+function isValidInternationalPhone(phone: string): boolean {
+  const digits = phone.replace(/\D/g, "");
+  return digits.length >= 10 && digits.length <= 15;
+}
+
 export const registerSchema = z
   .object({
     firstName: z.string().min(1, "Nome é obrigatório"),
     lastName: z.string().min(1, "Sobrenome é obrigatório"),
     phone: z
       .string()
-      .optional()
+      .min(1, "WhatsApp é obrigatório")
       .refine(
-        (val) => !val || val.length >= 10,
-        "Telefone deve ter pelo menos 10 dígitos"
+        (val) => {
+          const digits = val?.replace(/\D/g, "") ?? "";
+          if (digits.length < 10) return false;
+          if (isInternationalPhone(val)) {
+            return isValidInternationalPhone(val);
+          }
+          if (digits.length !== 11) return false;
+          return isValidBrazilianCellPhone(val);
+        },
+        "Brasil: use (DDD) 9XXXX-XXXX. Exterior: use +código do país e número (ex: +1 555 123 4567)"
       ),
     cpf: z
       .string()
