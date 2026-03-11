@@ -492,7 +492,7 @@ export default function PlansScreen() {
                 : "#475569",
             }}
           >
-            por mês
+            {plan.intervalLabel ?? "por mês"}
           </p>
         </div>
 

@@ -3,11 +3,13 @@ import type { Control, FieldErrors } from "react-hook-form";
 interface FormattedPhoneInputProps {
   control: Control<any>;
   errors: FieldErrors<any>;
+  readonly required?: boolean;
 }
 
 export const FormattedPhoneInput = ({
   control,
   errors,
+  required = false,
 }: FormattedPhoneInputProps) => {
   const inputBase =
     "w-full bg-slate-50 border-none focus:ring-2 focus:ring-register-primary/20 rounded-2xl px-4 py-3.5 text-sm transition-all duration-200";
@@ -16,14 +18,20 @@ export const FormattedPhoneInput = ({
   return (
     <div className="space-y-1.5">
       <label htmlFor="phone" className="text-xs font-medium text-slate-500 ml-1 block">
-        WhatsApp
+        WhatsApp {required && <span className="text-red-500">*</span>}
       </label>
       <input
         id="phone"
         {...control.register("phone")}
-        placeholder="(00) 00000-0000"
+        placeholder="(11) 99999-9999 ou +55 11 99999-9999"
         onChange={(e) => {
           const text = e.target.value;
+          const hasPlus = text.trimStart().startsWith("+");
+          if (hasPlus) {
+            const digitsAfterPlus = text.replace(/^\+/, "").replace(/\D/g, "");
+            e.target.value = "+" + digitsAfterPlus.substring(0, 15);
+            return;
+          }
           const formatted = text
             .replace(/\D/g, "")
             .replace(/^(\d{2})(\d)/g, "($1) $2")
