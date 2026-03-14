@@ -61,6 +61,29 @@ export default function PlansScreen() {
   const [pixCreating, setPixCreating] = useState(false);
   const [pollingPaymentId, setPollingPaymentId] = useState<string | null>(null);
 
+  // Sessão vinda do app (WebView): tokens no hash para não exigir login de novo na web
+  useEffect(() => {
+    const hash = globalThis.location?.hash?.slice(1);
+    if (!hash) return;
+
+    const params = new URLSearchParams(hash);
+    const accessToken = params.get("access_token");
+    const refreshToken = params.get("refresh_token");
+
+    if (!accessToken || !refreshToken) return;
+
+    supabase.auth
+      .setSession({ access_token: accessToken, refresh_token: refreshToken })
+      .then(() => {
+        globalThis.history?.replaceState(
+          null,
+          "",
+          globalThis.location?.pathname + globalThis.location?.search || "/plans"
+        );
+      })
+      .catch((err) => console.warn("Erro ao restaurar sessão no /plans:", err));
+  }, []);
+
   const handlePaymentClick = (plan: PlanConfig) => {
     if (plan.isFree) {
       handlePayment(plan);

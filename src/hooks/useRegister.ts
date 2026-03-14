@@ -5,6 +5,7 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { supabase } from "../lib/supabase";
 import { geocodeAddress, formatAddressForGeocoding } from "../lib/geocoding";
+import { getTrialDays } from "../lib/trial-days";
 
 function isValidCPF(cpf: string): boolean {
   cpf = cpf.replace(/\D/g, "");
@@ -491,15 +492,61 @@ export function useRegister() {
         throw new Error("Erro ao criar perfil: " + profileError.message);
       }
 
+      // Inicia o trial automaticamente (sem exigir cartão / checkout)
+      const trialDays = await getTrialDays();
+      const now = new Date();
+      const trialEnd = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);
+
+      const { data: existingSubs, error: existingSubsError } = await supabase
+        .from("subscriptions")
+        .select("id, status")
+        .eq("user_id", authData.user.id)
+        .in("status", ["active", "trialing"])
+        .limit(1);
+
+      if (existingSubsError) {
+        console.warn(
+          "⚠️ Erro ao verificar subscription existente (seguindo cadastro):",
+          existingSubsError
+        );
+      }
+
+      if (!existingSubs || existingSubs.length === 0) {
+        const subscriptionData = {
+          user_id: authData.user.id,
+          stripe_customer_id: `trial-customer-${authData.user.id}`,
+          stripe_subscription_id: null,
+          plan_type: "trialing",
+          status: "trialing",
+          start_date: now.toISOString(),
+          end_date: trialEnd.toISOString(),
+          payment_intent_id: null,
+          trial_days: trialDays,
+        };
+
+        const { error: subscriptionError } = await supabase
+          .from("subscriptions")
+          .insert([subscriptionData]);
+
+        if (subscriptionError) {
+          console.warn(
+            "⚠️ Não foi possível criar o trial automaticamente:",
+            subscriptionError
+          );
+        }
+      }
+
       toast.success(
-        "Cadastro realizado com sucesso! Redirecionando para escolha de planos...",
+        "Cadastro realizado com sucesso! Seu período de teste já começou.",
         {
           duration: 2000,
         }
       );
 
       setTimeout(() => {
-        window.location.href = "/plans";
+        window.location.href = `/success?trial=1&days=${encodeURIComponent(
+          String(trialDays)
+        )}`;
       }, 2000);
     } catch (error: any) {
       console.error("❌ Erro no cadastro:", error);
