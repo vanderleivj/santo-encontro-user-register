@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
+import { getTrialDays } from "../lib/trial-days";
 
 export interface PlanConfig {
   id: string;
@@ -71,8 +72,9 @@ export const usePayment = () => {
       }
 
       if (plan.isFree) {
+        const trialDays = await getTrialDays();
         const now = new Date();
-        const end = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        const end = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);
 
         const subscriptionData = {
           user_id: user.id,
@@ -83,6 +85,7 @@ export const usePayment = () => {
           start_date: now.toISOString(),
           end_date: end.toISOString(),
           payment_intent_id: null,
+          trial_days: trialDays,
         };
 
         const { error: insertError } = await supabase

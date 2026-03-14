@@ -24,6 +24,18 @@ function nextBillingLabel() {
 
 export default function SuccessScreen() {
   const search = useSearch({ strict: false });
+  const isTrial =
+    search && typeof search === "object" && "trial" in search
+      ? String((search as { trial?: string | number }).trial ?? "") === "1"
+      : false;
+  const trialDaysRaw =
+    search && typeof search === "object" && "days" in search
+      ? (search as { days?: unknown }).days
+      : undefined;
+  const trialDays =
+    trialDaysRaw !== undefined && trialDaysRaw !== null
+      ? Number(trialDaysRaw)
+      : undefined;
   const planLabel =
     search && typeof search === "object" && "planLabel" in search
       ? String((search as { planLabel?: string }).planLabel ?? "")
@@ -70,11 +82,14 @@ export default function SuccessScreen() {
             <span className="text-green-600 text-3xl" aria-hidden>✓</span>
           </div>
           <h2 className="text-xl font-bold text-slate-900">
-            Assinatura Confirmada
+            {isTrial ? "Período de teste ativado" : "Assinatura Confirmada"}
           </h2>
           <p className="text-slate-500 text-sm leading-relaxed max-w-[300px] mx-auto">
-            Seu pagamento foi processado com sucesso. Você já pode acessar todas
-            as funcionalidades.
+            {isTrial
+              ? `Seu teste${
+                  trialDays && Number.isFinite(trialDays) ? ` de ${trialDays} dias` : ""
+                } já começou. Você já pode acessar todas as funcionalidades.`
+              : "Seu pagamento foi processado com sucesso. Você já pode acessar todas as funcionalidades."}
           </p>
         </div>
 
