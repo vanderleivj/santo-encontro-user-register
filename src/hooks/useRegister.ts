@@ -3,9 +3,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "../lib/supabase";
 import { geocodeAddress, formatAddressForGeocoding } from "../lib/geocoding";
 import { getTrialDays } from "../lib/trial-days";
+import { isTrialAutomaticoEnabled } from "../lib/feature-flag-trial";
 
 function isValidCPF(cpf: string): boolean {
   cpf = cpf.replace(/\D/g, "");
@@ -157,6 +159,7 @@ export const registerSchema = z
 type RegisterFormData = z.infer<typeof registerSchema>;
 
 export function useRegister() {
+  const navigate = useNavigate();
   const [isSenhaVisible, setIsSenhaVisible] = useState(false);
   const [isConfirmarSenhaVisible, setIsConfirmarSenhaVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -492,62 +495,77 @@ export function useRegister() {
         throw new Error("Erro ao criar perfil: " + profileError.message);
       }
 
-      // Inicia o trial automaticamente (sem exigir cartão / checkout)
-      const trialDays = await getTrialDays();
-      const now = new Date();
-      const trialEnd = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);
+      const trialAutomaticoEnabled = await isTrialAutomaticoEnabled();
 
-      const { data: existingSubs, error: existingSubsError } = await supabase
-        .from("subscriptions")
-        .select("id, status")
-        .eq("user_id", authData.user.id)
-        .in("status", ["active", "trialing"])
-        .limit(1);
-
-      if (existingSubsError) {
-        console.warn(
-          "⚠️ Erro ao verificar subscription existente (seguindo cadastro):",
-          existingSubsError
+      if (trialAutomaticoEnabled) {
+        // Inicia o trial automaticamente (sem exigir cartão / checkout)
+        const trialDays = await getTrialDays();
+        const now = new Date();
+        const trialEnd = new Date(
+          now.getTime() + trialDays * 24 * 60 * 60 * 1000
         );
-      }
 
-      if (!existingSubs || existingSubs.length === 0) {
-        const subscriptionData = {
-          user_id: authData.user.id,
-          stripe_customer_id: `trial-customer-${authData.user.id}`,
-          stripe_subscription_id: null,
-          plan_type: "trialing",
-          status: "trialing",
-          start_date: now.toISOString(),
-          end_date: trialEnd.toISOString(),
-          payment_intent_id: null,
-          trial_days: trialDays,
-        };
-
-        const { error: subscriptionError } = await supabase
+        const { data: existingSubs, error: existingSubsError } = await supabase
           .from("subscriptions")
-          .insert([subscriptionData]);
+          .select("id, status")
+          .eq("user_id", authData.user.id)
+          .in("status", ["active", "trialing"])
+          .limit(1);
 
-        if (subscriptionError) {
+        if (existingSubsError) {
           console.warn(
-            "⚠️ Não foi possível criar o trial automaticamente:",
-            subscriptionError
+            "⚠️ Erro ao verificar subscription existente (seguindo cadastro):",
+            existingSubsError
           );
         }
-      }
 
-      toast.success(
-        "Cadastro realizado com sucesso! Seu período de teste já começou.",
-        {
-          duration: 2000,
+        if (!existingSubs || existingSubs.length === 0) {
+          const subscriptionData = {
+            user_id: authData.user.id,
+            stripe_customer_id: `trial-customer-${authData.user.id}`,
+            stripe_subscription_id: null,
+            plan_type: "trialing",
+            status: "trialing",
+            start_date: now.toISOString(),
+            end_date: trialEnd.toISOString(),
+            payment_intent_id: null,
+            trial_days: trialDays,
+          };
+
+          const { error: subscriptionError } = await supabase
+            .from("subscriptions")
+            .insert([subscriptionData]);
+
+          if (subscriptionError) {
+            console.warn(
+              "⚠️ Não foi possível criar o trial automaticamente:",
+              subscriptionError
+            );
+          }
         }
-      );
 
-      setTimeout(() => {
-        window.location.href = `/success?trial=1&days=${encodeURIComponent(
-          String(trialDays)
-        )}`;
-      }, 2000);
+        toast.success(
+          "Cadastro realizado com sucesso! Seu período de teste já começou.",
+          {
+            duration: 2000,
+          }
+        );
+
+        setTimeout(() => {
+          navigate({
+            to: "/success",
+            search: { trial: "1", days: String(trialDays) },
+          });
+        }, 2000);
+      } else {
+        toast.success("Cadastro realizado! Escolha um plano para continuar.", {
+          duration: 2000,
+        });
+
+        setTimeout(() => {
+          navigate({ to: "/plans" });
+        }, 2000);
+      }
     } catch (error: any) {
       console.error("❌ Erro no cadastro:", error);
       toast.error(
