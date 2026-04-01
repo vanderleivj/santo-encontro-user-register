@@ -1,17 +1,17 @@
 import { Controller } from "react-hook-form";
-import type { Control, FieldErrors } from "react-hook-form";
+import type { Control, FieldErrors, FieldValues } from "react-hook-form";
 
 const inputBase =
   "w-full bg-slate-50 border-none focus:ring-2 focus:ring-register-primary/20 rounded-2xl px-4 py-3.5 text-sm transition-all duration-200";
 const labelClass = "text-xs font-medium text-slate-500 ml-1 block";
 
 interface FormInputProps {
-  readonly control: Control<any>;
+  readonly control: Control<FieldValues>;
   readonly name: string;
   readonly label: string;
   readonly type?: string;
   readonly placeholder?: string;
-  readonly errors: FieldErrors<any>;
+  readonly errors: FieldErrors<FieldValues>;
   readonly required?: boolean;
   readonly disabled?: boolean;
   readonly min?: string;

@@ -1,5 +1,5 @@
 import { Controller } from "react-hook-form";
-import type { Control, FieldErrors } from "react-hook-form";
+import type { Control, FieldErrors, FieldValues } from "react-hook-form";
 import { Home } from "lucide-react";
 import { FormInput } from "./FormInput";
 import { FormattedCEPInput } from "../FormattedCEPInput";
@@ -9,8 +9,8 @@ const selectBase =
   "w-full bg-slate-50 border-none focus:ring-2 focus:ring-register-primary/20 rounded-2xl px-4 py-3.5 text-sm appearance-none transition-all duration-200";
 
 interface AddressSectionProps {
-  readonly control: Control<any>;
-  readonly errors: FieldErrors<any>;
+  readonly control: Control<FieldValues>;
+  readonly errors: FieldErrors<FieldValues>;
   readonly fetchAddressFromCEP: (cep: string) => Promise<void>;
   readonly isLoadingCep: boolean;
 }

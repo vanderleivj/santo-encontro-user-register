@@ -1,9 +1,9 @@
 import { Controller } from "react-hook-form";
-import type { Control, FieldErrors } from "react-hook-form";
+import type { Control, FieldErrors, FieldValues } from "react-hook-form";
 
 interface TermsSectionProps {
-  readonly control: Control<any>;
-  readonly errors: FieldErrors<any>;
+  readonly control: Control<FieldValues>;
+  readonly errors: FieldErrors<FieldValues>;
 }
 
 export function TermsSection({ control, errors }: TermsSectionProps) {

@@ -1,8 +1,8 @@
-import type { Control, FieldErrors } from "react-hook-form";
+import type { Control, FieldErrors, FieldValues } from "react-hook-form";
 
 interface FormattedPhoneInputProps {
-  control: Control<any>;
-  errors: FieldErrors<any>;
+  control: Control<FieldValues>;
+  errors: FieldErrors<FieldValues>;
   readonly required?: boolean;
 }
 

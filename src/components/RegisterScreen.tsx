@@ -1,4 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
+import type { Control, FieldErrors, FieldValues } from "react-hook-form";
 import { useRegister } from "../hooks/useRegister";
 import InactiveUserScreen from "./InactiveUserScreen";
 import { RegisterHeader } from "./register/RegisterHeader";
@@ -34,6 +35,9 @@ export default function RegisterScreen() {
     setShowInactiveScreen,
   } = useRegister();
 
+  const sectionControl = control as unknown as Control<FieldValues>;
+  const sectionErrors = errors as unknown as FieldErrors<FieldValues>;
+
   const handleLoginSuccess = () => {
     navigate({ to: "/plans" });
   };
@@ -68,8 +72,8 @@ export default function RegisterScreen() {
         >
           <div className="space-y-6">
             <PersonalDataSection
-            control={control}
-            errors={errors}
+            control={sectionControl}
+            errors={sectionErrors}
             isSenhaVisible={isSenhaVisible}
             setIsSenhaVisible={setIsSenhaVisible}
             isConfirmarSenhaVisible={isConfirmarSenhaVisible}
@@ -77,21 +81,21 @@ export default function RegisterScreen() {
           />
 
           <AddressSection
-            control={control}
-            errors={errors}
+            control={sectionControl}
+            errors={sectionErrors}
             fetchAddressFromCEP={fetchAddressFromCEP}
             isLoadingCep={isLoadingCep}
           />
         </div>
 
         <ReligiousInfoSection
-          control={control}
-          errors={errors}
+          control={sectionControl}
+          errors={sectionErrors}
           jaCasado={jaCasado}
           isViuvo={isViuvo}
         />
 
-        <TermsSection control={control} errors={errors} />
+        <TermsSection control={sectionControl} errors={sectionErrors} />
 
           <div className="pt-4">
             <button

@@ -1,4 +1,4 @@
-import { supabase } from "../lib/supabase";
+import { supabase } from "./supabase";
 
 const DEFAULT_TRIAL_DAYS = 7;
 const MIN_TRIAL_DAYS = 1;

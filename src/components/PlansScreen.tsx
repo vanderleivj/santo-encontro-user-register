@@ -16,6 +16,7 @@ import {
   getPixPaymentStatusByPaymentId,
 } from "../lib/api/payments";
 import { supabase } from "../lib/supabase";
+import { getTrialDays } from "../lib/trial-days";
 import {
   Dialog,
   DialogContent,
@@ -60,6 +61,11 @@ export default function PlansScreen() {
   const [timeRemaining, setTimeRemaining] = useState<string>("");
   const [pixCreating, setPixCreating] = useState(false);
   const [pollingPaymentId, setPollingPaymentId] = useState<string | null>(null);
+  const [trialDays, setTrialDays] = useState(7);
+
+  useEffect(() => {
+    getTrialDays().then(setTrialDays);
+  }, []);
 
   // Sessão vinda do app (WebView): tokens no hash para não exigir login de novo na web
   useEffect(() => {
@@ -167,8 +173,12 @@ export default function PlansScreen() {
       setMessageType("success");
 
       if (plan.isFree) {
+        const days = await getTrialDays();
         setTimeout(() => {
-          navigate({ to: "/" });
+          navigate({
+            to: "/success",
+            search: { trial: "1", days: String(days) },
+          });
         }, 2000);
       } else if (result.checkoutUrl) {
         globalThis.window.location.href = result.checkoutUrl;
@@ -248,6 +258,7 @@ export default function PlansScreen() {
   const renderPlanCard = (plan: PlanConfig) => {
     const isPopular = plan.isPopular;
     const isFree = plan.isFree;
+    const displayPriceAsFree = Boolean(isFree || plan.price <= 0);
     const isBlackFriday = blackFridayConfig.enabled;
 
     const getCardStyle = () => {
@@ -417,7 +428,22 @@ export default function PlansScreen() {
         </div>
 
         <div className="text-center mb-8">
-          {plan.originalPrice && plan.originalPrice > plan.price ? (
+          {displayPriceAsFree ? (
+            <div className="flex items-end justify-center mb-2">
+              <span
+                className="text-5xl sm:text-6xl font-bold tracking-tight"
+                style={{
+                  color: blackFridayConfig.price_discount_color
+                    ? blackFridayConfig.price_discount_color
+                    : isPopular
+                      ? "#FFFFFF"
+                      : "#0F172A",
+                }}
+              >
+                Gratuito
+              </span>
+            </div>
+          ) : plan.originalPrice && plan.originalPrice > plan.price ? (
             <div className="mb-2">
               <div className="flex items-center justify-center gap-2 mb-1">
                 <span
@@ -586,9 +612,27 @@ export default function PlansScreen() {
 
           {isFree && (
             <p className="text-center text-sm text-slate-500 mt-3">
-              7 dias grátis
+              {trialDays === 1
+                ? "1 dia grátis"
+                : `${trialDays} dias grátis`}
             </p>
           )}
+          {!isFree &&
+            plan.interval != null &&
+            plan.interval !== "one_time" && (
+              <p
+                className="text-center text-sm mt-3"
+                style={{
+                  color: blackFridayConfig.card_text_secondary
+                    ? blackFridayConfig.card_text_secondary
+                    : isPopular
+                      ? "#CBD5E1"
+                      : "#64748B",
+                }}
+              >
+                Os planos são renovados automaticamente.
+              </p>
+            )}
           {isPopular && (
             <p className="text-center text-sm text-slate-300 mt-3">
               2 dias até expirar
@@ -763,8 +807,15 @@ export default function PlansScreen() {
                   Escolha o método de pagamento
                 </DialogTitle>
                 <DialogDescription className="text-slate-500 text-sm">
-                  Plano {selectedPlan.name} · R$ {selectedPlan.price.toFixed(2).replace(".", ",")}
-                  {selectedPlan.interval === "month" || selectedPlan.interval === "monthly" ? "/mês" : "/ano"}
+                  Plano {selectedPlan.name}
+                  {selectedPlan.isFree || selectedPlan.price <= 0
+                    ? " · Gratuito"
+                    : ` · R$ ${selectedPlan.price.toFixed(2).replace(".", ",")}${
+                        selectedPlan.interval === "month" ||
+                        selectedPlan.interval === "monthly"
+                          ? "/mês"
+                          : "/ano"
+                      }`}
                 </DialogDescription>
               </DialogHeader>
 

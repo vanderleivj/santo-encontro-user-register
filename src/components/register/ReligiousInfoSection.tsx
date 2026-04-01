@@ -1,10 +1,10 @@
-import type { Control, FieldErrors } from "react-hook-form";
+import type { Control, FieldErrors, FieldValues } from "react-hook-form";
 import { Church } from "lucide-react";
 import { RadioGroup } from "./RadioGroup";
 
 interface ReligiousInfoSectionProps {
-  readonly control: Control<any>;
-  readonly errors: FieldErrors<any>;
+  readonly control: Control<FieldValues>;
+  readonly errors: FieldErrors<FieldValues>;
   readonly jaCasado: string;
   readonly isViuvo: string | undefined;
 }

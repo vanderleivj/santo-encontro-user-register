@@ -1,4 +1,4 @@
-import type { Control, FieldErrors } from "react-hook-form";
+import type { Control, FieldErrors, FieldValues } from "react-hook-form";
 import { User } from "lucide-react";
 import { FormInput } from "./FormInput";
 import { PasswordInput } from "./PasswordInput";
@@ -7,8 +7,8 @@ import { FormattedPhoneInput } from "../FormattedPhoneInput";
 import { FormattedCPFInput } from "../FormattedCPFInput";
 
 interface PersonalDataSectionProps {
-  readonly control: Control<any>;
-  readonly errors: FieldErrors<any>;
+  readonly control: Control<FieldValues>;
+  readonly errors: FieldErrors<FieldValues>;
   readonly isSenhaVisible: boolean;
   readonly setIsSenhaVisible: (visible: boolean) => void;
   readonly isConfirmarSenhaVisible: boolean;

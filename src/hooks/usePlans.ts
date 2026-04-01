@@ -44,6 +44,48 @@ export interface PlanConfig {
   stripePriceId?: string;
 }
 
+/** Plano gratuito (trial) exibido na UI; `id` alinhado a usePayment (plan_type no banco). */
+const SYNTHETIC_FREE_PLAN: PlanConfig = {
+  id: "trialing",
+  name: "Período de teste",
+  description: "Experimente o app com acesso completo, sem cartão.",
+  price: 0,
+  currency: "BRL",
+  interval: null,
+  interval_count: null,
+  intervalLabel: "sem compromisso",
+  features: [
+    "Acesso às funcionalidades durante o teste",
+    "Sem cobrança no período gratuito",
+    "Cancele quando quiser antes de assinar",
+  ],
+  isFree: true,
+};
+
+async function fetchShowFreePlan(): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from("app_config")
+      .select("value")
+      .eq("key", "show_free_plan")
+      .single();
+
+    if (error) {
+      // PGRST116 = chave não encontrada; oculta plano gratuito por padrão
+      if ((error as any).code === "PGRST116") return false;
+      return false;
+    }
+
+    const value = data?.value;
+    if (typeof value === "boolean") return value;
+    if (value && typeof value === "object" && "enabled" in value)
+      return Boolean((value as Record<string, unknown>).enabled);
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 export const usePlans = () => {
   const [plans, setPlans] = useState<PlanConfig[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,11 +96,14 @@ export const usePlans = () => {
       setLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
-        .from("plans")
-        .select("*")
-        .eq("is_active", true)
-        .order("price", { ascending: true });
+      const [{ data, error: fetchError }, showFreePlan] = await Promise.all([
+        supabase
+          .from("plans")
+          .select("*")
+          .eq("is_active", true)
+          .order("price", { ascending: true }),
+        fetchShowFreePlan(),
+      ]);
 
       if (fetchError) {
         throw new Error(fetchError.message || "Erro ao buscar planos");
@@ -86,7 +131,20 @@ export const usePlans = () => {
           stripePriceId: plan.stripe_price_id,
         })) || [];
 
-      setPlans(convertedPlans);
+      const paidPlans = convertedPlans.filter((p) => !p.isFree);
+      const freePlansFromDb = convertedPlans.filter((p) => p.isFree);
+
+      if (!showFreePlan) {
+        setPlans(paidPlans);
+        return;
+      }
+
+      const hasFreeFromDb = freePlansFromDb.length > 0;
+      setPlans(
+        hasFreeFromDb
+          ? convertedPlans
+          : [SYNTHETIC_FREE_PLAN, ...paidPlans]
+      );
     } catch (err) {
       console.error("Erro ao buscar planos:", err);
       setError(err instanceof Error ? err.message : "Erro desconhecido");
