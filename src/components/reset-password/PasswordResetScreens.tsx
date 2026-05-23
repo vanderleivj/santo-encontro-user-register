@@ -42,6 +42,28 @@ function getUrlParams() {
   return { queryParams, hashParams };
 }
 
+function hasRecoveryLinkParams() {
+  const { queryParams, hashParams } = getUrlParams();
+  const recoveryKeys = [
+    "access_token",
+    "refresh_token",
+    "code",
+    "error",
+    "error_code",
+  ];
+
+  if (
+    queryParams.get("type") === "recovery" ||
+    hashParams.get("type") === "recovery"
+  ) {
+    return true;
+  }
+
+  return recoveryKeys.some(
+    (key) => queryParams.has(key) || hashParams.has(key)
+  );
+}
+
 function getFriendlyRecoveryError(description?: string | null, code?: string | null) {
   if (code === "otp_expired") {
     return "Este link expirou. Solicite um novo email de recuperação para continuar.";
@@ -356,6 +378,14 @@ export function ForgotPasswordScreen() {
       </button>
     </PasswordResetShell>
   );
+}
+
+export function PasswordResetEntryScreen() {
+  if (hasRecoveryLinkParams()) {
+    return <AuthCallbackScreen />;
+  }
+
+  return <ForgotPasswordScreen />;
 }
 
 export function AuthCallbackScreen() {

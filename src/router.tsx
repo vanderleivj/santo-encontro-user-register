@@ -10,6 +10,7 @@ import RegisterScreen from "./components/RegisterScreen";
 import {
   AuthCallbackScreen,
   ForgotPasswordScreen,
+  PasswordResetEntryScreen,
   ResetPasswordScreen,
 } from "./components/reset-password/PasswordResetScreens";
 import DeleteAccountScreen from "./components/DeleteAccountScreen";
@@ -29,7 +30,7 @@ const rootRoute = createRootRoute({
 const resetPasswordRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
-  component: ForgotPasswordScreen,
+  component: PasswordResetEntryScreen,
 });
 
 const forgotPasswordRoute = createRoute({
