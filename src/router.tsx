@@ -7,7 +7,12 @@ import {
 import { TanStackRouterDevtools } from "@tanstack/router-devtools";
 
 import RegisterScreen from "./components/RegisterScreen";
-import ResetPasswordScreen from "./components/ResetPasswordScreen";
+import {
+  AuthCallbackScreen,
+  ForgotPasswordScreen,
+  PasswordResetEntryScreen,
+  ResetPasswordScreen,
+} from "./components/reset-password/PasswordResetScreens";
 import DeleteAccountScreen from "./components/DeleteAccountScreen";
 import PlansScreen from "./components/PlansScreen";
 import SuccessScreen from "./components/SuccessScreen";
@@ -25,6 +30,24 @@ const rootRoute = createRootRoute({
 const resetPasswordRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
+  component: PasswordResetEntryScreen,
+});
+
+const forgotPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/forgot-password",
+  component: ForgotPasswordScreen,
+});
+
+const authCallbackRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/auth/callback",
+  component: AuthCallbackScreen,
+});
+
+const newPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/reset-password",
   component: ResetPasswordScreen,
 });
 
@@ -60,6 +83,9 @@ const catchAllRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   resetPasswordRoute,
+  forgotPasswordRoute,
+  authCallbackRoute,
+  newPasswordRoute,
   registerRoute,
   deleteAccountRoute,
   plansRoute,
