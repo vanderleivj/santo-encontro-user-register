@@ -24,7 +24,7 @@ function verifySignature(
   xRequestId: string,
   sig: { ts: string; v1: string },
   secret: string
-): boolean {
+): Promise<boolean> {
   const manifest = `id:${dataId};request-id:${xRequestId};ts:${sig.ts};`;
   const key = new TextEncoder().encode(secret);
   const msg = new TextEncoder().encode(manifest);
@@ -36,14 +36,93 @@ function verifySignature(
     .catch(() => false);
 }
 
+type MercadoPagoPayment = {
+  id?: string | number;
+  status?: string;
+  amount?: string | number;
+  transaction_amount?: string | number;
+  total_paid_amount?: string | number;
+  paid_amount?: string | number;
+};
+
+type MercadoPagoOrder = {
+  id?: string | number;
+  status?: string;
+  status_detail?: string;
+  external_reference?: string;
+  total_amount?: string | number;
+  transaction_amount?: string | number;
+  total_paid_amount?: string | number;
+  paid_amount?: string | number;
+  transactions?: {
+    payments?: MercadoPagoPayment[];
+  };
+};
+
+function toCents(value: unknown): number | null {
+  let amount = Number.NaN;
+  if (typeof value === "number") {
+    amount = value;
+  } else if (typeof value === "string") {
+    amount = Number(value);
+  }
+
+  return Number.isFinite(amount) ? Math.round(amount * 100) : null;
+}
+
+function getOrderAmountCents(
+  order: MercadoPagoOrder,
+  firstPayment?: MercadoPagoPayment
+): number | null {
+  const candidates = [
+    firstPayment?.amount,
+    firstPayment?.transaction_amount,
+    firstPayment?.total_paid_amount,
+    firstPayment?.paid_amount,
+    order.total_amount,
+    order.transaction_amount,
+    order.total_paid_amount,
+    order.paid_amount,
+  ];
+
+  for (const candidate of candidates) {
+    const cents = toCents(candidate);
+    if (cents !== null) return cents;
+  }
+
+  return null;
+}
+
+async function rejectPixPayment(
+  adminClient: ReturnType<typeof createClient>,
+  paymentId: string,
+  reason: string
+) {
+  const { error } = await adminClient
+    .from("pix_payments")
+    .update({
+      status: "rejected",
+      rejected_reason: reason,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", paymentId);
+
+  if (error) {
+    console.error("mercadopago-webhook: failed to reject pix_payment", {
+      paymentId,
+      reason,
+      error,
+    });
+  }
+}
+
 async function activateSubscriptionFromPixPayment(
   adminClient: ReturnType<typeof createClient>,
-  pixPayment: { user_id: string; plan_type: string },
-  userId: string
+  pixPayment: { user_id: string; plan_type: string }
 ) {
   const { user_id, plan_type } = pixPayment;
   const now = new Date();
-  let endDate = new Date(now);
+  const endDate = new Date(now);
 
   switch (plan_type) {
     case "monthly":
@@ -128,21 +207,24 @@ serve(async (req) => {
   try {
     const url = new URL(req.url);
     const dataIdParam = url.searchParams.get("data.id") ?? "";
-    const dataId = dataIdParam.toLowerCase();
+    const dataId = dataIdParam.trim();
     const typeParam = url.searchParams.get("type");
 
     const xSignature = req.headers.get("x-signature");
     const xRequestId = req.headers.get("x-request-id") ?? "";
 
     const secret = Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET");
-    if (secret && dataId && xRequestId && xSignature) {
+    if (secret) {
       const sig = parseXSignature(xSignature);
-      if (sig) {
-        const valid = await verifySignature(dataId, xRequestId, sig, secret);
-        if (!valid) {
-          console.warn("mercadopago-webhook: signature verification failed");
-          return ok();
-        }
+      if (!dataId || !xRequestId || !sig) {
+        console.warn("mercadopago-webhook: missing required signature data");
+        return ok();
+      }
+
+      const valid = await verifySignature(dataId, xRequestId, sig, secret);
+      if (!valid) {
+        console.warn("mercadopago-webhook: signature verification failed");
+        return ok();
       }
     }
 
@@ -152,7 +234,9 @@ serve(async (req) => {
 
     const body = await req.json();
     const action = (body as { action?: string }).action ?? "";
-    const orderIdFromBody = (body as { data?: { id?: string } }).data?.id ?? dataIdParam;
+    const orderIdFromBody =
+      (body as { data?: { id?: string } }).data?.id ?? dataId;
+    const orderId = String(orderIdFromBody).trim();
 
     const mpAccessToken = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
@@ -164,7 +248,7 @@ serve(async (req) => {
     }
 
     const orderRes = await fetch(
-      `https://api.mercadopago.com/v1/orders/${orderIdFromBody}`,
+      `https://api.mercadopago.com/v1/orders/${orderId}`,
       {
         headers: { Authorization: `Bearer ${mpAccessToken}` },
       }
@@ -175,12 +259,14 @@ serve(async (req) => {
       return ok();
     }
 
-    const order = await orderRes.json();
-    const status = (order as { status?: string }).status ?? "";
-    const statusDetail = (order as { status_detail?: string }).status_detail ?? "";
-    const transactions = (order as { transactions?: { payments?: unknown[] } }).transactions;
-    const payments = transactions?.payments ?? [];
-    const firstPayment = payments[0] as { status?: string } | undefined;
+    const order = (await orderRes.json()) as MercadoPagoOrder;
+    const status = order.status ?? "";
+    const statusDetail = order.status_detail ?? "";
+    const transactions = order.transactions;
+    const payments = Array.isArray(transactions?.payments)
+      ? transactions.payments
+      : [];
+    const firstPayment = payments[0];
     const paymentStatus = firstPayment?.status ?? "";
 
     // Ordem paga: status "processed" + "accredited" (doc MP) ou "paid"/"approved" em nível de pagamento
@@ -203,14 +289,14 @@ serve(async (req) => {
 
     const { data: record, error: fetchErr } = await adminClient
       .from("pix_payments")
-      .select("id, user_id, plan_type, status, source")
-      .eq("mercadopago_order_id", orderIdFromBody)
+      .select("id, user_id, plan_type, amount, status, source")
+      .eq("mercadopago_order_id", orderId)
       .eq("source", "mercadopago")
       .limit(1)
       .maybeSingle();
 
     if (fetchErr || !record) {
-      console.error("mercadopago-webhook: pix_payment not found", orderIdFromBody, fetchErr);
+      console.error("mercadopago-webhook: pix_payment not found", orderId, fetchErr);
       return ok();
     }
 
@@ -218,7 +304,79 @@ serve(async (req) => {
       return ok();
     }
 
-    console.log("mercadopago-webhook: approving pix_payment", record.id, "order", orderIdFromBody);
+    if (record.status === "rejected") {
+      return ok();
+    }
+
+    const externalReference =
+      typeof order.external_reference === "string" ? order.external_reference : "";
+    if (externalReference && externalReference !== record.id) {
+      console.error("mercadopago-webhook: external_reference mismatch", {
+        orderId,
+        externalReference,
+        pixPaymentId: record.id,
+      });
+      await rejectPixPayment(
+        adminClient,
+        record.id,
+        "Ordem Mercado Pago não corresponde ao pagamento PIX."
+      );
+      return ok();
+    }
+
+    const { data: planRow, error: planError } = await adminClient
+      .from("plans")
+      .select("id, price")
+      .eq("interval", record.plan_type)
+      .eq("is_active", true)
+      .limit(1)
+      .single();
+
+    const officialAmountCents = toCents(planRow?.price);
+    const recordAmountCents = toCents(record.amount);
+    const paidAmountCents = getOrderAmountCents(order, firstPayment);
+
+    if (
+      planError ||
+      !planRow?.id ||
+      officialAmountCents === null ||
+      officialAmountCents <= 0
+    ) {
+      console.error("mercadopago-webhook: invalid active plan price", {
+        orderId,
+        pixPaymentId: record.id,
+        planType: record.plan_type,
+        planError,
+      });
+      await rejectPixPayment(
+        adminClient,
+        record.id,
+        "Plano ativo não encontrado ou valor inválido."
+      );
+      return ok();
+    }
+
+    if (
+      recordAmountCents !== officialAmountCents ||
+      paidAmountCents !== officialAmountCents
+    ) {
+      console.error("mercadopago-webhook: payment amount mismatch", {
+        orderId,
+        pixPaymentId: record.id,
+        planType: record.plan_type,
+        recordAmountCents,
+        paidAmountCents,
+        officialAmountCents,
+      });
+      await rejectPixPayment(
+        adminClient,
+        record.id,
+        "Valor pago não corresponde ao preço oficial do plano."
+      );
+      return ok();
+    }
+
+    console.log("mercadopago-webhook: approving pix_payment", record.id, "order", orderId);
     await adminClient
       .from("pix_payments")
       .update({
@@ -229,22 +387,12 @@ serve(async (req) => {
       })
       .eq("id", record.id);
 
-    await activateSubscriptionFromPixPayment(adminClient, record, record.user_id);
+    await activateSubscriptionFromPixPayment(adminClient, record);
 
-    const { data: planRow } = await adminClient
-      .from("plans")
-      .select("id")
-      .eq("interval", record.plan_type)
-      .eq("is_active", true)
-      .limit(1)
-      .single();
-
-    if (planRow?.id) {
-      await adminClient
-        .from("user_profiles")
-        .update({ plan_id: planRow.id, updated_at: new Date().toISOString() })
-        .eq("id", record.user_id);
-    }
+    await adminClient
+      .from("user_profiles")
+      .update({ plan_id: planRow.id, updated_at: new Date().toISOString() })
+      .eq("id", record.user_id);
 
     // Notificar usuário por WhatsApp (assinatura ativada)
     const internalSecret = Deno.env.get("INTERNAL_SECRET");
