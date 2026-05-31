@@ -72,7 +72,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { planType, amount } = body as { planType: string; amount?: number };
+    const { planType } = body as { planType: string };
 
     if (!planType || !VALID_PLAN_TYPES.includes(planType)) {
       return new Response(
@@ -88,28 +88,29 @@ serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    let finalAmount = amount;
-    if (typeof finalAmount !== "number" || finalAmount <= 0) {
-      const { data: planRow } = await adminClient
-        .from("plans")
-        .select("price")
-        .eq("interval", planType)
-        .eq("is_active", true)
-        .limit(1)
-        .single();
+    const { data: planRow, error: planError } = await adminClient
+      .from("plans")
+      .select("price")
+      .eq("interval", planType)
+      .eq("is_active", true)
+      .limit(1)
+      .single();
 
-      if (!planRow?.price) {
-        return new Response(
-          JSON.stringify({
-            error: "Plano não encontrado ou valor inválido. Recarregue a página.",
-          }),
-          {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
-      }
-      finalAmount = Number(planRow.price);
+    const finalAmount = Number(planRow?.price);
+    if (planError || !Number.isFinite(finalAmount) || finalAmount <= 0) {
+      console.error("create-mercadopago-pix-order: invalid plan price", {
+        planType,
+        planError,
+      });
+      return new Response(
+        JSON.stringify({
+          error: "Plano não encontrado ou valor inválido. Recarregue a página.",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
     const { data: userRow } = await adminClient

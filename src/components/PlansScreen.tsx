@@ -128,11 +128,7 @@ export default function PlansScreen() {
             : raw === "year"
               ? "yearly"
               : raw;
-        const res = await createMercadoPagoPixOrder(
-          accessToken,
-          planType,
-          plan.price
-        );
+        const res = await createMercadoPagoPixOrder(accessToken, planType);
         const pix: PixData = {
           paymentIntentId: res.paymentId,
           paymentId: res.paymentId,

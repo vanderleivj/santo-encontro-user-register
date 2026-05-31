@@ -127,8 +127,7 @@ export interface MercadoPagoPixOrderResponse {
  */
 export async function createMercadoPagoPixOrder(
   accessToken: string,
-  planType: string,
-  amount?: number
+  planType: string
 ): Promise<MercadoPagoPixOrderResponse> {
   const response = await fetch(
     `${SUPABASE_FUNCTIONS_URL}/functions/v1/create-mercadopago-pix-order`,
@@ -139,7 +138,7 @@ export async function createMercadoPagoPixOrder(
         Authorization: `Bearer ${accessToken}`,
         apikey: SUPABASE_ANON_KEY,
       },
-      body: JSON.stringify({ planType, amount }),
+      body: JSON.stringify({ planType }),
     }
   );
 
