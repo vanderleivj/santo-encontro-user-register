@@ -257,13 +257,16 @@ export function useRegister() {
 
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      const { error: userError } = await supabase.from("users").insert({
-        id: authData.user.id,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        phone: data.phone || null,
-        email: data.email,
-      });
+      const { error: userError } = await supabase.from("users").upsert(
+        {
+          id: authData.user.id,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          phone: data.phone || null,
+          email: data.email,
+        },
+        { onConflict: "id" }
+      );
 
       if (userError) {
         console.error("❌ Erro ao criar usuário na tabela users:", userError);
@@ -446,13 +449,16 @@ export function useRegister() {
         throw new Error("Por favor, confirme seu email antes de continuar");
       }
 
-      const { error: userError } = await supabase.from("users").insert({
-        id: authData.user.id,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        phone: data.phone || null,
-        email: data.email,
-      });
+      const { error: userError } = await supabase.from("users").upsert(
+        {
+          id: authData.user.id,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          phone: data.phone || null,
+          email: data.email,
+        },
+        { onConflict: "id" }
+      );
 
       if (userError) {
         console.error("❌ Erro ao inserir na tabela users:", userError);
