@@ -44,7 +44,7 @@ export function PasswordInput({
               id={name}
               type={isVisible ? "text" : "password"}
               placeholder={placeholder}
-              value={value}
+              value={value ?? ""}
               onChange={onChange}
               onBlur={onBlur}
               className={inputClasses}

@@ -56,12 +56,13 @@ export function FormInput({
       <Controller
         control={control}
         name={name}
+        defaultValue=""
         render={({ field: { onChange, onBlur, value } }) => (
           <input
             id={name}
             type={type}
             placeholder={placeholder}
-            value={value}
+            value={value ?? ""}
             onChange={onChange}
             onBlur={onBlur}
             disabled={disabled || isLoading}

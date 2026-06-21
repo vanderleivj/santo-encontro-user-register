@@ -66,6 +66,16 @@ export function PersonalDataSection({
           required
         />
 
+        <FormInput
+          control={control}
+          name="confirmarEmail"
+          label="Confirmar e-mail"
+          type="email"
+          placeholder="Confirme seu e-mail"
+          errors={errors}
+          required
+        />
+
         <RadioGroup
           control={control}
           name="gender"

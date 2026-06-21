@@ -103,6 +103,9 @@ export const registerSchema = z
       .string()
       .min(1, "Email é obrigatório")
       .email("Formato de email inválido"),
+    confirmarEmail: z
+      .string({ error: "Confirmação de e-mail é obrigatória" })
+      .min(1, "Confirmação de e-mail é obrigatória"),
     age: z
       .string()
       .min(1, "Idade é obrigatória")
@@ -130,6 +133,10 @@ export const registerSchema = z
     concordaRegras: z.boolean().refine((val) => val === true, {
       message: "Você deve concordar com as regras para continuar",
     }),
+  })
+  .refine((data) => data.email === data.confirmarEmail, {
+    message: "Os e-mails não coincidem",
+    path: ["confirmarEmail"],
   })
   .refine((data) => data.senha === data.confirmarSenha, {
     message: "As senhas não coincidem",
@@ -206,6 +213,7 @@ export function useRegister() {
       phone: "",
       cpf: "",
       email: "",
+      confirmarEmail: "",
       age: "",
       temFilhos: "",
       senha: "",
