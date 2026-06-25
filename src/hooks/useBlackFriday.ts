@@ -6,6 +6,9 @@ export interface BlackFridayConfig {
   start_date?: string | null;
   end_date?: string | null;
   banner_text?: string;
+  banner_subtitle?: string;
+  brand_title?: string;
+  brand_subtitle?: string;
   discount_badge_color?: string;
   updated_at?: string;
 
@@ -103,6 +106,9 @@ export const useBlackFriday = () => {
           start_date: configValue.start_date,
           end_date: configValue.end_date,
           banner_text: configValue.banner_text || "BLACK FRIDAY",
+          banner_subtitle: configValue.banner_subtitle,
+          brand_title: configValue.brand_title,
+          brand_subtitle: configValue.brand_subtitle,
           discount_badge_color: configValue.discount_badge_color || "#FF0000",
           updated_at: configValue.updated_at,
           banner_background_start: configValue.banner_background_start,

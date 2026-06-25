@@ -693,30 +693,31 @@ export default function PlansScreen() {
                 color: blackFridayConfig.banner_text_color || "#FFFFFF",
               }}
             >
-              <div className="flex items-center justify-center gap-4 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl animate-pulse">🔥</span>
-                  <h2 className="text-2xl lg:text-3xl font-black tracking-wider">
-                    {blackFridayConfig.banner_text || "BLACK FRIDAY"}
-                  </h2>
-                  <span className="text-2xl animate-pulse">🔥</span>
-                </div>
-                <div
-                  className="hidden md:block w-px h-8"
-                  style={{
-                    backgroundColor:
-                      blackFridayConfig.banner_border_color || "#DC2626",
-                  }}
-                />
-                <p
-                  className="text-lg font-bold animate-pulse"
-                  style={{
-                    color:
-                      blackFridayConfig.banner_accent_text_color || "#FDE047",
-                  }}
-                >
-                  DESCONTOS ESPECIAIS!
-                </p>
+              <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:flex-wrap sm:justify-center sm:gap-4">
+                <h2 className="text-2xl lg:text-3xl font-black tracking-wider">
+                  {blackFridayConfig.banner_text || "BLACK FRIDAY"}
+                </h2>
+                {blackFridayConfig.banner_subtitle && (
+                  <>
+                    <div
+                      className="hidden md:block w-px h-8"
+                      style={{
+                        backgroundColor:
+                          blackFridayConfig.banner_border_color || "#DC2626",
+                      }}
+                    />
+                    <p
+                      className="text-lg font-bold animate-pulse"
+                      style={{
+                        color:
+                          blackFridayConfig.banner_accent_text_color ||
+                          "#FDE047",
+                      }}
+                    >
+                      {blackFridayConfig.banner_subtitle}
+                    </p>
+                  </>
+                )}
               </div>
             </div>
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer pointer-events-none" />
@@ -738,7 +739,7 @@ export default function PlansScreen() {
                 : undefined
             }
           >
-            Santo Encontro
+            {blackFridayConfig.brand_title || "Santo Encontro"}
           </h1>
           <p
             className={
@@ -752,7 +753,8 @@ export default function PlansScreen() {
                 : undefined
             }
           >
-            Juntos na fé, unidos pelo amor
+            {blackFridayConfig.brand_subtitle ||
+              "Juntos na fé, unidos pelo amor"}
           </p>
           {!blackFridayConfig.enabled && (
             <p className="text-slate-500 text-sm mt-2 max-w-md mx-auto">
