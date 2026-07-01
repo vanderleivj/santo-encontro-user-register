@@ -4,9 +4,7 @@ import { Home } from "lucide-react";
 import { FormInput } from "./FormInput";
 import { FormattedCEPInput } from "../FormattedCEPInput";
 import { statesList } from "../../utils/states-list";
-
-const selectBase =
-  "w-full bg-slate-50 border-none focus:ring-2 focus:ring-register-primary/20 rounded-2xl px-4 py-3.5 text-sm appearance-none transition-all duration-200";
+import { registerInputClass, registerLabelClass } from "./form-styles";
 
 interface AddressSectionProps {
   readonly control: Control<FieldValues>;
@@ -73,7 +71,7 @@ export function AddressSection({
         <div className="space-y-1.5">
           <label
             htmlFor="state"
-            className="text-xs font-medium text-slate-500 ml-1 block"
+            className={registerLabelClass}
           >
             Estado <span className="text-red-500">*</span>
           </label>
@@ -86,7 +84,7 @@ export function AddressSection({
                 value={value}
                 onChange={onChange}
                 disabled={isLoadingCep}
-                className={`${selectBase} ${
+                className={`${registerInputClass} appearance-none ${
                   errors.state ? "ring-2 ring-red-200" : ""
                 } ${isLoadingCep ? "bg-slate-100/80" : ""}`}
               >

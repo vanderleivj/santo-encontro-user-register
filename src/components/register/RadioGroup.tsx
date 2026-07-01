@@ -1,5 +1,6 @@
 import { Controller } from "react-hook-form";
 import type { Control, FieldErrors, FieldValues } from "react-hook-form";
+import { registerLabelClass } from "./form-styles";
 
 interface RadioOption {
   value: string;
@@ -32,7 +33,7 @@ export function RadioGroup({
   return (
     <div className="space-y-3">
       <Wrapper>
-        <LabelTag className="block text-xs font-medium text-slate-500 ml-1">
+        <LabelTag className={`block ${registerLabelClass}`}>
           {label} {required && <span className="text-red-500">*</span>}
         </LabelTag>
         <Controller

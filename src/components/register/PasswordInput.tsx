@@ -1,10 +1,7 @@
 import { Controller } from "react-hook-form";
 import type { Control, FieldErrors, FieldValues } from "react-hook-form";
 import { Eye, EyeOff } from "lucide-react";
-
-const inputBase =
-  "w-full bg-slate-50 border-none focus:ring-2 focus:ring-register-primary/20 rounded-2xl px-4 py-3.5 pr-12 text-sm transition-all duration-200";
-const labelClass = "text-xs font-medium text-slate-500 ml-1 block";
+import { registerInputClass, registerLabelClass } from "./form-styles";
 
 interface PasswordInputProps {
   readonly control: Control<FieldValues>;
@@ -27,12 +24,12 @@ export function PasswordInput({
 }: PasswordInputProps) {
   const fieldError = errors[name];
   const inputClasses =
-    inputBase +
+    `${registerInputClass} pr-12` +
     (fieldError ? " ring-2 ring-red-200 focus:ring-red-500/30" : "");
 
   return (
     <div className="space-y-1.5 relative">
-      <label htmlFor={name} className={labelClass}>
+      <label htmlFor={name} className={registerLabelClass}>
         {label} <span className="text-red-500">*</span>
       </label>
       <div className="relative">

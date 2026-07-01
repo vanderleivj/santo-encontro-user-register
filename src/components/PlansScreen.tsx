@@ -574,7 +574,7 @@ export default function PlansScreen() {
             onClick={() => handlePaymentClick(plan)}
             disabled={paymentLoading || pixCreating}
             className={`w-full py-4 px-6 text-lg font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
-              isBlackFriday ? "rounded-full transform hover:scale-105 disabled:transform-none" : "rounded-2xl bg-register-primary hover:bg-slate-800 text-white shadow-lg active:scale-[0.98]"
+              isBlackFriday ? "rounded-full transform hover:scale-105 disabled:transform-none" : "rounded-2xl brand-primary-button shadow-lg active:scale-[0.98]"
             }`}
             style={getButtonStyle()}
             onMouseEnter={(e) => {
@@ -649,7 +649,7 @@ export default function PlansScreen() {
             {plansError && (
               <button
                 onClick={refetch}
-                className="mt-4 px-6 py-3 bg-register-primary text-white rounded-2xl hover:bg-slate-800 transition-colors"
+                className="mt-4 px-6 py-3 brand-primary-button rounded-2xl transition-colors"
               >
                 Tentar novamente
               </button>
@@ -927,7 +927,7 @@ export default function PlansScreen() {
                     <button
                       onClick={handleCopyCode}
                       type="button"
-                      className="px-4 py-3.5 bg-slate-800 cursor-pointer text-white rounded-2xl hover:bg-transparent hover:text-slate-800 hover:border-2 hover:border-slate-800 transition-colors flex items-center gap-2 font-semibold text-sm shrink-0"
+                      className="px-4 py-3.5 brand-primary-button cursor-pointer rounded-2xl transition-colors flex items-center gap-2 font-semibold text-sm shrink-0"
                     >
                       {copiedCode ? (
                         <>

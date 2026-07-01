@@ -1,4 +1,5 @@
 import type { Control, FieldErrors, FieldValues } from "react-hook-form";
+import { registerInputClass, registerLabelClass } from "./register/form-styles";
 
 interface FormattedPhoneInputProps {
   control: Control<FieldValues>;
@@ -11,13 +12,11 @@ export const FormattedPhoneInput = ({
   errors,
   required = false,
 }: FormattedPhoneInputProps) => {
-  const inputBase =
-    "w-full bg-slate-50 border-none focus:ring-2 focus:ring-register-primary/20 rounded-2xl px-4 py-3.5 text-sm transition-all duration-200";
   const inputError = "ring-2 ring-red-200 focus:ring-red-500/30";
 
   return (
     <div className="space-y-1.5">
-      <label htmlFor="phone" className="text-xs font-medium text-slate-500 ml-1 block">
+      <label htmlFor="phone" className={registerLabelClass}>
         WhatsApp {required && <span className="text-red-500">*</span>}
       </label>
       <input
@@ -39,7 +38,7 @@ export const FormattedPhoneInput = ({
             .substring(0, 15);
           e.target.value = formatted;
         }}
-        className={`${inputBase} ${errors.phone ? inputError : ""}`}
+        className={`${registerInputClass} ${errors.phone ? inputError : ""}`}
       />
       {errors.phone && (
         <p className="text-red-600 text-sm mt-1 ml-1">
