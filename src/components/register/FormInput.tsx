@@ -1,9 +1,6 @@
 import { Controller } from "react-hook-form";
 import type { Control, FieldErrors, FieldValues } from "react-hook-form";
-
-const inputBase =
-  "w-full bg-slate-50 border-none focus:ring-2 focus:ring-register-primary/20 rounded-2xl px-4 py-3.5 text-sm transition-all duration-200";
-const labelClass = "text-xs font-medium text-slate-500 ml-1 block";
+import { registerInputClass, registerLabelClass } from "./form-styles";
 
 interface FormInputProps {
   readonly control: Control<FieldValues>;
@@ -37,7 +34,7 @@ export function FormInput({
   isLoading = false,
 }: FormInputProps) {
   const fieldError = errors[name];
-  let inputClasses = inputBase;
+  let inputClasses = registerInputClass;
   if (fieldError) {
     inputClasses += " ring-2 ring-red-200 focus:ring-red-500/30";
   } else if (isLoading) {
@@ -50,7 +47,7 @@ export function FormInput({
 
   return (
     <div className="space-y-1.5">
-      <label htmlFor={name} className={labelClass}>
+      <label htmlFor={name} className={registerLabelClass}>
         {label} {required && <span className="text-red-500">*</span>}
       </label>
       <Controller

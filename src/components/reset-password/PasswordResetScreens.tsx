@@ -141,32 +141,32 @@ function PasswordResetShell({
   readonly children: ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-register-bg text-slate-900 font-sans">
-      <main className="max-w-md mx-auto px-6 pb-12 pt-4">
+    <div className="min-h-screen font-sans themed-page-bg">
+      <main className="relative z-10 max-w-md mx-auto px-6 pb-12 pt-4">
         <header className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-2xl shadow-sm mb-6 overflow-hidden">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-white/95 rounded-2xl shadow-lg shadow-black/20 mb-6 overflow-hidden ring-1 ring-white/40">
             <img src={logo} alt="" className="w-14 h-14 object-contain" />
           </div>
-          <h1 className="font-register text-3xl text-register-primary mb-2">
+          <h1 className="font-register text-3xl page-header-title mb-2 drop-shadow-sm">
             Santo Encontro
           </h1>
-          <p className="text-slate-500 text-sm italic">
+          <p className="text-sm italic page-header-subtitle">
             Juntos na fé, unidos pelo amor
           </p>
-          <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-register-primary text-white rounded-full text-xs font-medium uppercase tracking-wider">
+          <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-brand-accent text-white rounded-full text-xs font-medium uppercase tracking-wider shadow-lg shadow-black/20">
             {icon}
             {badge}
           </div>
           <div className="mt-6 space-y-2">
-            <h2 className="text-2xl font-semibold text-slate-900">{title}</h2>
-            <p className="text-sm leading-6 text-slate-500">{subtitle}</p>
+            <h2 className="text-2xl font-semibold page-header-title">{title}</h2>
+            <p className="text-sm leading-6 page-header-subtitle">{subtitle}</p>
           </div>
         </header>
 
         {children}
 
         <div className="flex justify-center mt-12 mb-2">
-          <div className="w-32 h-1.5 bg-slate-200 rounded-full" />
+          <div className="w-32 h-1.5 bg-white/25 rounded-full" />
         </div>
       </main>
     </div>
@@ -219,7 +219,7 @@ function PrimaryButton({
     <button
       type="submit"
       disabled={disabled}
-      className="cursor-pointer w-full bg-slate-800 hover:border-2 hover:border-slate-800 hover:bg-transparent hover:text-slate-800 text-white font-semibold py-4 rounded-2xl shadow-lg transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-register-primary/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+      className="cursor-pointer w-full brand-primary-button py-4 rounded-2xl shadow-lg transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-register-primary/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
     >
       {children}
     </button>
@@ -490,7 +490,7 @@ export function AuthCallbackScreen() {
           <button
             type="button"
             onClick={() => navigate({ to: "/forgot-password" })}
-            className="cursor-pointer w-full bg-slate-800 hover:border-2 hover:border-slate-800 hover:bg-transparent hover:text-slate-800 text-white font-semibold py-4 rounded-2xl shadow-lg transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-register-primary/50"
+            className="cursor-pointer w-full brand-primary-button py-4 rounded-2xl shadow-lg transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-register-primary/50"
           >
             Solicitar novo link
           </button>
@@ -619,7 +619,7 @@ export function ResetPasswordScreen() {
           <button
             type="button"
             onClick={() => navigate({ to: "/forgot-password" })}
-            className="cursor-pointer w-full bg-slate-800 hover:border-2 hover:border-slate-800 hover:bg-transparent hover:text-slate-800 text-white font-semibold py-4 rounded-2xl shadow-lg transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-register-primary/50"
+            className="cursor-pointer w-full brand-primary-button py-4 rounded-2xl shadow-lg transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-register-primary/50"
           >
             Enviar novo link
           </button>
@@ -642,7 +642,7 @@ export function ResetPasswordScreen() {
           <button
             type="button"
             onClick={notifyAppPasswordResetDone}
-            className="cursor-pointer w-full bg-slate-800 hover:border-2 hover:border-slate-800 hover:bg-transparent hover:text-slate-800 text-white font-semibold py-4 rounded-2xl shadow-lg transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-register-primary/50"
+            className="cursor-pointer w-full brand-primary-button py-4 rounded-2xl shadow-lg transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-register-primary/50"
           >
             {isWebView ? "Voltar para o app" : "Abrir o app para fazer login"}
           </button>

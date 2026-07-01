@@ -192,7 +192,7 @@ export function LoginModal({
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full sm:flex-1 bg-slate-800 cursor-pointer px-4 py-3.5 text-sm font-semibold rounded-2xl bg-register-primary text-white hover:bg-transparent hover:text-slate-800 hover:border-2 hover:border-slate-800 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full sm:flex-1 brand-primary-button cursor-pointer px-4 py-3.5 text-sm font-semibold rounded-2xl transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <div className="flex items-center justify-center gap-2">

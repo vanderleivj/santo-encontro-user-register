@@ -26,10 +26,10 @@ export function PersonalDataSection({
   return (
     <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-5">
       <div className="flex items-center gap-3 mb-2">
-        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-50 text-blue-500">
+        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[#00255D]/10 text-[#00255D]">
           <User className="w-5 h-5" aria-hidden />
         </div>
-        <h2 className="font-semibold text-lg text-slate-900">Dados Pessoais</h2>
+        <h2 className="font-semibold text-lg text-[#00255D]">Dados Pessoais</h2>
       </div>
 
       <div className="space-y-4">

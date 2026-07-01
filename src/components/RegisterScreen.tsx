@@ -58,8 +58,8 @@ export default function RegisterScreen() {
   }
 
   return (
-    <div className="min-h-screen bg-register-bg text-slate-900 font-sans">
-      <div className="max-w-md mx-auto px-6 pb-12 pt-4">
+    <div className="min-h-screen font-sans themed-page-bg">
+      <div className="relative z-10 max-w-md mx-auto px-6 pb-12 pt-4">
         <RegisterHeader onOpenLogin={() => setShowLoginModal(true)} />
 
         <div className="mb-6">
@@ -100,7 +100,7 @@ export default function RegisterScreen() {
           <div className="pt-4">
             <button
               type="submit"
-              className="cursor-pointer w-full bg-slate-800 hover:border-2 hover:border-slate-800 hover:bg-transparent hover:text-slate-800 text-white font-semibold py-4 rounded-2xl shadow-lg transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-register-primary/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+              className="cursor-pointer w-full brand-primary-button py-4 rounded-2xl shadow-lg transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-register-primary/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
               disabled={isSubmitting}
             >
               {isSubmitting ? (
@@ -116,7 +116,7 @@ export default function RegisterScreen() {
         </form>
 
         <div className="flex justify-center mt-12 mb-2">
-          <div className="w-32 h-1.5 bg-slate-200 rounded-full" />
+          <div className="w-32 h-1.5 bg-white/25 rounded-full" />
         </div>
       </div>
 
