@@ -6,6 +6,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "content-type, x-signature, x-request-id",
 };
 
+function planTypeToPlanInterval(planType: string): string {
+  const intervalMap: Record<string, string> = {
+    monthly: "month",
+    yearly: "year",
+    quarterly: "quarterly",
+    semiannual: "semiannual",
+  };
+
+  return intervalMap[planType] ?? planType;
+}
+
 function parseXSignature(header: string | null): { ts: string; v1: string } | null {
   if (!header) return null;
   const parts = header.split(",");
@@ -324,10 +335,12 @@ serve(async (req) => {
       return ok();
     }
 
+    const planInterval = planTypeToPlanInterval(record.plan_type);
+
     const { data: planRow, error: planError } = await adminClient
       .from("plans")
       .select("id, price")
-      .eq("interval", record.plan_type)
+      .eq("interval", planInterval)
       .eq("is_active", true)
       .limit(1)
       .single();

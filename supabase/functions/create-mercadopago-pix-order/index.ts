@@ -9,6 +9,17 @@ const corsHeaders = {
 
 const VALID_PLAN_TYPES = ["monthly", "yearly", "quarterly", "semiannual"];
 
+function planTypeToPlanInterval(planType: string): string {
+  const intervalMap: Record<string, string> = {
+    monthly: "month",
+    yearly: "year",
+    quarterly: "quarterly",
+    semiannual: "semiannual",
+  };
+
+  return intervalMap[planType] ?? planType;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -88,10 +99,12 @@ serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
+    const planInterval = planTypeToPlanInterval(planType);
+
     const { data: planRow, error: planError } = await adminClient
       .from("plans")
       .select("price")
-      .eq("interval", planType)
+      .eq("interval", planInterval)
       .eq("is_active", true)
       .limit(1)
       .single();
