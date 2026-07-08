@@ -219,6 +219,7 @@ serve(async (req) => {
     const url = new URL(req.url);
     const dataIdParam = url.searchParams.get("data.id") ?? "";
     const dataId = dataIdParam.trim();
+    const dataIdForSignature = dataId.toLowerCase();
     const typeParam = url.searchParams.get("type");
 
     const xSignature = req.headers.get("x-signature");
@@ -232,7 +233,7 @@ serve(async (req) => {
         return ok();
       }
 
-      const valid = await verifySignature(dataId, xRequestId, sig, secret);
+      const valid = await verifySignature(dataIdForSignature, xRequestId, sig, secret);
       if (!valid) {
         console.warn("mercadopago-webhook: signature verification failed");
         return ok();
