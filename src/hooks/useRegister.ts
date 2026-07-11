@@ -196,7 +196,10 @@ export function useRegister() {
   const [isLoadingCep, setIsLoadingCep] = useState(false);
   const [showInactiveScreen, setShowInactiveScreen] = useState(false);
   const [inactiveReason, setInactiveReason] = useState("");
-  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(() => {
+    const params = new URLSearchParams(globalThis.location?.search ?? "");
+    return params.get("mode") !== "register";
+  });
   const [existingUserEmail, setExistingUserEmail] = useState("");
 
   const {
