@@ -187,7 +187,7 @@ export function LoginModal({
               disabled={isLoading}
               className="w-full sm:flex-1 px-4 py-3.5 text-sm font-medium rounded-2xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Cancelar
+              {isManualTrigger ? "Criar nova conta" : "Cancelar"}
             </button>
             <button
               type="submit"
