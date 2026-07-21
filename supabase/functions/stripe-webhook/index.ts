@@ -478,8 +478,74 @@ async function handleStripeWebhook(event: Stripe.Event) {
             }
           } else {
             console.log(
-              `Subscription ${subscription.id} já está com status ${subscription.status}`
+              `Subscription ${subscription.id} já está com status ${subscription.status}, sincronizando banco`
             );
+
+            const { data: userData, error: userError } = await supabase
+              .from("users")
+              .select("id, phone")
+              .eq("stripe_customer_id", subscription.customer)
+              .single();
+
+            if (!userError && userData) {
+              const recurring = subscription.items.data[0]?.price.recurring;
+              let planType = "monthly";
+              if (recurring?.interval === "year") {
+                planType = "yearly";
+              } else if (recurring?.interval === "month") {
+                const intervalCount = recurring?.interval_count || 1;
+                if (intervalCount === 3) planType = "quarterly";
+                else if (intervalCount === 6) planType = "semiannual";
+              }
+
+              const now = new Date();
+              let endDate = new Date(now);
+              if (planType === "yearly") {
+                endDate.setFullYear(endDate.getFullYear() + 1);
+              } else if (planType === "semiannual") {
+                endDate.setMonth(endDate.getMonth() + 6);
+              } else if (planType === "quarterly") {
+                endDate.setMonth(endDate.getMonth() + 3);
+              } else {
+                endDate.setMonth(endDate.getMonth() + 1);
+              }
+
+              const { data: existingSubscription } = await supabase
+                .from("subscriptions")
+                .select("id")
+                .eq("stripe_subscription_id", subscription.id)
+                .maybeSingle();
+
+              if (existingSubscription) {
+                await supabase
+                  .from("subscriptions")
+                  .update({
+                    status: subscription.status,
+                    plan_type: planType,
+                    end_date: endDate.toISOString(),
+                    updated_at: now.toISOString(),
+                  })
+                  .eq("id", existingSubscription.id);
+              } else {
+                await supabase.from("subscriptions").insert({
+                  user_id: userData.id,
+                  stripe_customer_id: subscription.customer,
+                  stripe_subscription_id: subscription.id,
+                  status: subscription.status,
+                  plan_type: planType,
+                  start_date: now.toISOString(),
+                  end_date: endDate.toISOString(),
+                  updated_at: now.toISOString(),
+                });
+              }
+
+              if (
+                subscription.status === "active" ||
+                subscription.status === "trialing"
+              ) {
+                await sendWhatsAppStatus(userData.phone, WHATSAPP_ACTIVE);
+              }
+            }
           }
         }
         break;
@@ -629,7 +695,45 @@ async function handleStripeWebhook(event: Stripe.Event) {
           }
 
           if (existingSubscription) {
-            // Atualizar registro existente
+            let statusToPersist = subscriptionStatus;
+
+            if (
+              statusToPersist === "incomplete" ||
+              statusToPersist === "incomplete_expired"
+            ) {
+              try {
+                const liveSubscription = await stripe.subscriptions.retrieve(
+                  subscriptionEvent.id
+                );
+                statusToPersist = liveSubscription.status;
+                console.log(
+                  `Status live revalidado para ${subscriptionEvent.id}: ${statusToPersist}`
+                );
+              } catch (liveStatusError) {
+                console.error(
+                  "Erro ao revalidar status live da subscription:",
+                  liveStatusError
+                );
+              }
+            }
+
+            const { data: currentSubscription } = await supabase
+              .from("subscriptions")
+              .select("status")
+              .eq("id", existingSubscription.id)
+              .single();
+
+            if (
+              currentSubscription?.status === "active" &&
+              (statusToPersist === "incomplete" ||
+                statusToPersist === "incomplete_expired")
+            ) {
+              console.log(
+                `Ignorando downgrade de active -> ${statusToPersist} para ${subscriptionEvent.id}`
+              );
+              break;
+            }
+
             console.log(
               "Atualizando subscription existente:",
               existingSubscription.id
@@ -637,7 +741,7 @@ async function handleStripeWebhook(event: Stripe.Event) {
             const { error: updateError } = await supabase
               .from("subscriptions")
               .update({
-                status: subscriptionStatus,
+                status: statusToPersist,
                 plan_type: planType,
                 end_date: endDate.toISOString(),
                 updated_at: now.toISOString(),
@@ -652,17 +756,39 @@ async function handleStripeWebhook(event: Stripe.Event) {
               );
             }
             const msg =
-              subscriptionStatus === "active" ||
-              subscriptionStatus === "trialing"
+              statusToPersist === "active" || statusToPersist === "trialing"
                 ? WHATSAPP_ACTIVE
                 : WHATSAPP_CANCELED;
             await sendWhatsAppStatus(userData.phone, msg);
           } else {
-            // Criar novo registro
+            let statusToPersist = subscriptionStatus;
+            if (
+              statusToPersist === "incomplete" ||
+              statusToPersist === "incomplete_expired"
+            ) {
+              try {
+                const liveSubscription = await stripe.subscriptions.retrieve(
+                  subscriptionEvent.id
+                );
+                statusToPersist = liveSubscription.status;
+                console.log(
+                  `Status live revalidado para insert ${subscriptionEvent.id}: ${statusToPersist}`
+                );
+              } catch (liveStatusError) {
+                console.error(
+                  "Erro ao revalidar status live da subscription:",
+                  liveStatusError
+                );
+              }
+            }
+
             console.log("Criando nova subscription");
             const { error: insertError } = await supabase
               .from("subscriptions")
-              .insert(subscriptionData);
+              .insert({
+                ...subscriptionData,
+                status: statusToPersist,
+              });
 
             if (insertError) {
               console.error("Erro ao criar subscription:", insertError);
@@ -672,8 +798,7 @@ async function handleStripeWebhook(event: Stripe.Event) {
               );
             }
             const msg =
-              subscriptionStatus === "active" ||
-              subscriptionStatus === "trialing"
+              statusToPersist === "active" || statusToPersist === "trialing"
                 ? WHATSAPP_ACTIVE
                 : WHATSAPP_CANCELED;
             await sendWhatsAppStatus(userData.phone, msg);
