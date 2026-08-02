@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase, SUPABASE_URL } from "../lib/supabase";
 import { getTrialDays } from "../lib/trial-days";
 
 export interface PlanConfig {
@@ -125,7 +125,7 @@ export const usePayment = () => {
       };
 
       const response = await fetch(
-        "https://eiqohrnjpytwrhsokpqc.supabase.co/functions/v1/create-checkout-session",
+        `${SUPABASE_URL}/functions/v1/create-checkout-session`,
         {
           method: "POST",
           headers: {
