@@ -2,11 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import logo from "../assets/logo.png";
 import ScreenLayout from "./ScreenLayout";
-
-// Configurações do Supabase
-const SUPABASE_URL = "https://eiqohrnjpytwrhsokpqc.supabase.co";
-const SUPABASE_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpcW9ocm5qcHl0d3Joc29rcHFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgzMTgxOTcsImV4cCI6MjA2Mzg5NDE5N30.FQ9V5R0alTJJ_NCeyQCMJEeno2b7eUl8db71e6Sh15o";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../lib/supabase";
 
 interface User {
   user: any;
