@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type CSSProperties } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Check,
@@ -12,9 +12,9 @@ import { usePlans, type PlanConfig } from "../hooks/usePlans";
 import { useBlackFriday } from "../hooks/useBlackFriday";
 import { usePayment } from "../hooks/usePayment";
 import {
-  createMercadoPagoPixOrder,
-  getPixPaymentStatusByPaymentId,
-} from "../lib/api/payments";
+  createAsaasSubscription,
+  getAsaasPaymentStatus,
+} from "../lib/api/asaas";
 import { supabase } from "../lib/supabase";
 import { getTrialDays } from "../lib/trial-days";
 import {
@@ -26,7 +26,7 @@ import {
 } from "./ui/dialog";
 import { SupportContact } from "./register/SupportContact";
 
-export type PaymentMethod = "boleto_card" | "pix";
+export type PaymentMethod = "pix" | "credit_card" | "boleto";
 
 interface PixData {
   paymentIntentId: string;
@@ -39,6 +39,17 @@ interface PixData {
   expiresAt: number;
   amount: number;
   currency: string;
+}
+
+function mapPlanIntervalToPlanType(interval: string | null | undefined): string {
+  const raw = interval === "one_time" || !interval ? "monthly" : interval;
+  if (raw === "month") return "monthly";
+  if (raw === "year") return "yearly";
+  return raw;
+}
+
+function onlyDigits(value: string): string {
+  return value.replace(/\D/g, "");
 }
 
 export default function PlansScreen() {
@@ -62,6 +73,14 @@ export default function PlansScreen() {
   const [pixCreating, setPixCreating] = useState(false);
   const [pollingPaymentId, setPollingPaymentId] = useState<string | null>(null);
   const [trialDays, setTrialDays] = useState(7);
+  const [cardHolderName, setCardHolderName] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCcv, setCardCcv] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [addressNumber, setAddressNumber] = useState("");
+  const [phone, setPhone] = useState("");
+  const [showCardFields, setShowCardFields] = useState(false);
 
   useEffect(() => {
     getTrialDays().then(setTrialDays);
@@ -103,72 +122,11 @@ export default function PlansScreen() {
     plan: PlanConfig,
     paymentMethod?: PaymentMethod
   ) => {
-    setShowPaymentModal(false);
-
-    if (paymentMethod === "pix") {
-      setPixCreating(true);
-      setMessage("");
-      try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) {
-          setMessage("Erro ao verificar sessão. Faça login novamente.");
-          setMessageType("error");
-          return;
-        }
-        const accessToken = session?.access_token;
-        if (!accessToken) {
-          setMessage("Faça login novamente para gerar o PIX.");
-          setMessageType("error");
-          return;
-        }
-        const raw = plan.interval === "one_time" || !plan.interval ? "monthly" : plan.interval;
-        const planType =
-          raw === "month"
-            ? "monthly"
-            : raw === "year"
-              ? "yearly"
-              : raw;
-        const res = await createMercadoPagoPixOrder(accessToken, planType);
-        const pix: PixData = {
-          paymentIntentId: res.paymentId,
-          paymentId: res.paymentId,
-          qrCode: res.qrCodeBase64
-            ? `data:image/png;base64,${res.qrCodeBase64}`
-            : "",
-          qrCodeBase64: res.qrCodeBase64,
-          code: res.qrCode,
-          key: "Pagamento via Mercado Pago",
-          ticketUrl: res.ticketUrl,
-          expiresAt: typeof res.expiresAt === "number" ? res.expiresAt : Math.floor(Date.now() / 1000) + 30 * 60,
-          amount: res.amount,
-          currency: (res.currency ?? "BRL").toLowerCase(),
-        };
-        setPixData(pix);
-        setPollingPaymentId(res.paymentId);
-        setMessage("PIX gerado. Escaneie ou copie o código para pagar.");
+    if (plan.isFree) {
+      const result = await handlePaymentWithStripe(plan);
+      if (result.success) {
+        setMessage(result.message ?? "Sucesso!");
         setMessageType("success");
-      } catch (err) {
-        const msg =
-          err instanceof Error ? err.message : "Erro ao gerar PIX. Tente novamente.";
-        setMessage(msg);
-        setMessageType("error");
-      } finally {
-        setPixCreating(false);
-      }
-      return;
-    }
-
-    const result = await handlePaymentWithStripe(
-      plan,
-      undefined,
-      paymentMethod
-    );
-
-    if (result.success) {
-      setMessage(result.message ?? "Sucesso!");
-      setMessageType("success");
-
-      if (plan.isFree) {
         const days = await getTrialDays();
         setTimeout(() => {
           navigate({
@@ -176,12 +134,175 @@ export default function PlansScreen() {
             search: { trial: "1", days: String(days) },
           });
         }, 2000);
-      } else if (result.checkoutUrl) {
-        globalThis.window.location.href = result.checkoutUrl;
+      } else {
+        setMessage(result.error ?? "Erro no pagamento");
+        setMessageType("error");
       }
-    } else {
-      setMessage(result.error ?? "Erro no pagamento");
+      return;
+    }
+
+    if (!paymentMethod) return;
+
+    if (paymentMethod === "credit_card" && !showCardFields) {
+      setShowCardFields(true);
+      return;
+    }
+
+    if (paymentMethod === "credit_card") {
+      const [expiryMonth, expiryYearRaw] = cardExpiry.split("/");
+      const expiryYear = expiryYearRaw?.length === 2
+        ? `20${expiryYearRaw}`
+        : expiryYearRaw;
+      if (
+        !cardHolderName.trim() ||
+        onlyDigits(cardNumber).length < 13 ||
+        !expiryMonth ||
+        !expiryYear ||
+        onlyDigits(cardCcv).length < 3 ||
+        onlyDigits(postalCode).length < 8 ||
+        !addressNumber.trim() ||
+        onlyDigits(phone).length < 10
+      ) {
+        setMessage("Preencha todos os dados do cartão e endereço.");
+        setMessageType("error");
+        return;
+      }
+    }
+
+    setShowPaymentModal(false);
+    setPixCreating(true);
+    setMessage("");
+
+    try {
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+      if (sessionError || !session?.access_token) {
+        setMessage("Faça login novamente para continuar o pagamento.");
+        setMessageType("error");
+        return;
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const { data: userProfile } = await supabase
+        .from("users")
+        .select('email, "firstName", "lastName", cpf')
+        .eq("id", user?.id ?? "")
+        .maybeSingle();
+
+      const cpfDigits = onlyDigits(userProfile?.cpf ?? "");
+      if (cpfDigits.length !== 11) {
+        setMessage(
+          "CPF não encontrado no cadastro. Atualize seu perfil ou refaça o registro."
+        );
+        setMessageType("error");
+        return;
+      }
+
+      const planType = mapPlanIntervalToPlanType(plan.interval);
+      const billingType =
+        paymentMethod === "pix"
+          ? "PIX"
+          : paymentMethod === "boleto"
+            ? "BOLETO"
+            : "CREDIT_CARD";
+
+      const [expiryMonth, expiryYearRaw] = cardExpiry.split("/");
+      const expiryYear =
+        expiryYearRaw?.length === 2 ? `20${expiryYearRaw}` : expiryYearRaw;
+      const fullName =
+        `${userProfile?.firstName ?? ""} ${userProfile?.lastName ?? ""}`.trim() ||
+        cardHolderName.trim() ||
+        userProfile?.email ||
+        "Cliente";
+
+      const res = await createAsaasSubscription(session.access_token, {
+        planType,
+        billingType,
+        cpf: cpfDigits,
+        ...(billingType === "CREDIT_CARD"
+          ? {
+              creditCard: {
+                holderName: cardHolderName.trim(),
+                number: onlyDigits(cardNumber),
+                expiryMonth: onlyDigits(expiryMonth || ""),
+                expiryYear: onlyDigits(expiryYear || ""),
+                ccv: onlyDigits(cardCcv),
+              },
+              creditCardHolderInfo: {
+                name: cardHolderName.trim() || fullName,
+                email: userProfile?.email || user?.email || "",
+                cpfCnpj: cpfDigits,
+                postalCode: onlyDigits(postalCode),
+                addressNumber: addressNumber.trim(),
+                phone: onlyDigits(phone),
+                mobilePhone: onlyDigits(phone),
+              },
+            }
+          : {}),
+      });
+
+      if (billingType === "PIX") {
+        const pix: PixData = {
+          paymentIntentId: res.paymentId || res.subscriptionId,
+          paymentId: res.paymentId || "",
+          qrCode: res.qrCodeBase64
+            ? `data:image/png;base64,${res.qrCodeBase64}`
+            : "",
+          qrCodeBase64: res.qrCodeBase64 || undefined,
+          code: res.qrCode || "",
+          key: "Pagamento via Asaas",
+          ticketUrl: res.invoiceUrl || undefined,
+          expiresAt:
+            typeof res.expiresAt === "number"
+              ? res.expiresAt
+              : Math.floor(Date.now() / 1000) + 30 * 60,
+          amount: res.amount,
+          currency: (res.currency ?? "BRL").toLowerCase(),
+        };
+        setPixData(pix);
+        if (res.paymentId) setPollingPaymentId(res.paymentId);
+        setMessage("PIX gerado. Escaneie ou copie o código para pagar.");
+        setMessageType("success");
+        return;
+      }
+
+      if (billingType === "BOLETO" && (res.bankSlipUrl || res.invoiceUrl)) {
+        setMessage("Boleto gerado. Conclua o pagamento para ativar o plano.");
+        setMessageType("success");
+        globalThis.window.open(res.bankSlipUrl || res.invoiceUrl || "", "_blank");
+        if (res.paymentId) setPollingPaymentId(res.paymentId);
+        return;
+      }
+
+      if (billingType === "CREDIT_CARD" && res.status === "active") {
+        setMessage("Pagamento aprovado!");
+        setMessageType("success");
+        navigate({
+          to: "/success",
+          search: {
+            paymentMethod: "card",
+            planLabel: plan.name,
+            amount: res.amount,
+          },
+        });
+        return;
+      }
+
+      setMessage("Assinatura criada. Aguarde a confirmação do pagamento.");
+      setMessageType("success");
+      if (res.paymentId) setPollingPaymentId(res.paymentId);
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "Erro ao processar pagamento.";
+      setMessage(msg);
       setMessageType("error");
+    } finally {
+      setPixCreating(false);
+      setShowCardFields(false);
     }
   };
 
@@ -229,7 +350,7 @@ export default function PlansScreen() {
         const session = await supabase.auth.getSession();
         const token = session.data.session?.access_token;
         if (!token) return;
-        const res = await getPixPaymentStatusByPaymentId(token, pollingPaymentId);
+        const res = await getAsaasPaymentStatus(token, pollingPaymentId);
         if (res.status === "approved") {
           const planLabel = selectedPlan?.name;
           const amount = pixData?.amount;
@@ -255,83 +376,45 @@ export default function PlansScreen() {
     const isPopular = plan.isPopular;
     const isFree = plan.isFree;
     const displayPriceAsFree = Boolean(isFree || plan.price <= 0);
-    const isBlackFriday = blackFridayConfig.enabled;
+    const isCampaign = blackFridayConfig.enabled;
 
-    const getCardStyle = () => {
-      if (isBlackFriday) {
-        const style: React.CSSProperties = {
-          background: `linear-gradient(to bottom right, ${
-            blackFridayConfig.card_background_start || "#000000"
-          }, ${blackFridayConfig.card_background_mid || "#111827"}, ${
-            blackFridayConfig.card_background_end || "#000000"
-          })`,
-          color: blackFridayConfig.card_text_color || "#FFFFFF",
-          borderColor: isPopular
-            ? blackFridayConfig.badge_popular_background ||
-              blackFridayConfig.card_border_color ||
-              "#3B82F6"
-            : blackFridayConfig.card_border_color || "#DC2626",
-          borderWidth: "2px",
-          transform: isPopular ? "scale(1.05)" : "scale(1)",
-        };
+    const getCardStyle = (): CSSProperties => {
+      const style: CSSProperties = {
+        background:
+          "linear-gradient(to bottom right, var(--card-bg-start), var(--card-bg-mid), var(--card-bg-end))",
+        color: "var(--card-text)",
+        borderColor: isPopular
+          ? "var(--badge-popular-bg)"
+          : "var(--card-border)",
+        borderWidth: "2px",
+        borderStyle: "solid",
+        transform: isPopular ? "scale(1.05)" : "scale(1)",
+        boxShadow: isPopular
+          ? "0 25px 50px -12px var(--layout-shadow), 0 0 0 4px var(--ring-color)"
+          : "0 25px 50px -12px var(--layout-shadow)",
+      };
 
-        const shadow =
-          blackFridayConfig.shadow_color || "rgba(127, 29, 29, 0.5)";
-        style.boxShadow = `0 25px 50px -12px ${shadow}`;
-
-        if (isPopular && blackFridayConfig.ring_color) {
-          style.boxShadow = `${style.boxShadow}, 0 0 0 4px ${blackFridayConfig.ring_color}`;
-        }
-
-        if (blackFridayConfig.glow_color) {
-          style.filter = `drop-shadow(0 0 8px ${blackFridayConfig.glow_color})`;
-        }
-
-        return style;
-      } else if (isPopular) {
-        const borderColor =
-          blackFridayConfig.badge_popular_background || "#3B82F6";
-        const ringColor =
-          blackFridayConfig.ring_color || "rgba(59, 130, 246, 0.3)";
-
-        const style: React.CSSProperties = {
-          borderColor: borderColor,
-          borderWidth: "2px",
-          borderStyle: "solid",
-        };
-
-        style.boxShadow = `0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 4px ${ringColor}`;
-
-        return style;
-      }
-      return {};
-    };
-
-    const getButtonStyle = () => {
-      const style: React.CSSProperties = {};
-
-      if (blackFridayConfig.button_primary_background) {
-        style.backgroundColor = blackFridayConfig.button_primary_background;
-      }
-      if (blackFridayConfig.button_primary_text) {
-        style.color = blackFridayConfig.button_primary_text;
-      }
-      if (isBlackFriday && blackFridayConfig.button_primary_shadow) {
-        style.boxShadow = `0 10px 15px -3px ${blackFridayConfig.button_primary_shadow}`;
+      if (isCampaign) {
+        style.filter = "drop-shadow(0 0 8px var(--glow-color))";
       }
 
       return style;
     };
 
-    const getButtonHoverStyle = () => {
-      const style: React.CSSProperties = {};
-
-      if (blackFridayConfig.button_primary_hover) {
-        style.backgroundColor = blackFridayConfig.button_primary_hover;
+    const getButtonStyle = (): CSSProperties => {
+      const style: CSSProperties = {
+        backgroundColor: "var(--button-primary-bg)",
+        color: "var(--button-primary-text)",
+      };
+      if (isCampaign) {
+        style.boxShadow = "0 10px 15px -3px var(--button-primary-shadow)";
       }
-
       return style;
     };
+
+    const getButtonHoverStyle = (): CSSProperties => ({
+      backgroundColor: "var(--button-primary-hover)",
+    });
 
     const getButtonText = () => {
       if (isFree) return "Ativar Plano Gratuito";
@@ -340,18 +423,8 @@ export default function PlansScreen() {
     };
 
     const cardStyle = getCardStyle();
-
-    let baseCardClasses =
-      "rounded-3xl p-8 relative transition-all duration-300 flex flex-col h-full";
-
-    if (isBlackFriday) {
-      baseCardClasses += " border-2";
-    } else if (isPopular) {
-      baseCardClasses += " bg-register-primary text-white shadow-xl scale-105";
-    } else {
-      baseCardClasses +=
-        " bg-white border border-slate-100 shadow-sm hover:shadow-md";
-    }
+    const baseCardClasses =
+      "rounded-3xl p-8 relative transition-all duration-300 flex flex-col h-full border-2";
 
     return (
       <div
@@ -359,17 +432,13 @@ export default function PlansScreen() {
         className={baseCardClasses}
         style={cardStyle}
         onMouseEnter={(e) => {
-          if (isBlackFriday && !isPopular) {
-            e.currentTarget.style.borderColor =
-              blackFridayConfig.card_border_hover ||
-              blackFridayConfig.card_border_color ||
-              "#DC2626";
+          if (!isPopular) {
+            e.currentTarget.style.borderColor = "var(--card-border-hover)";
           }
         }}
         onMouseLeave={(e) => {
-          if (isBlackFriday && !isPopular) {
-            e.currentTarget.style.borderColor =
-              blackFridayConfig.card_border_color || "#DC2626";
+          if (!isPopular) {
+            e.currentTarget.style.borderColor = "var(--card-border)";
           }
         }}
       >
@@ -378,19 +447,16 @@ export default function PlansScreen() {
             <div
               className="px-4 py-2 rounded-full text-sm font-bold"
               style={{
-                backgroundColor:
-                  blackFridayConfig.badge_popular_background || "#3B82F6",
-                color: blackFridayConfig.badge_popular_text || "#FFFFFF",
-                ...(isBlackFriday && {
+                backgroundColor: "var(--badge-popular-bg)",
+                color: "var(--badge-popular-text)",
+                ...(isCampaign && {
                   animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
-                  boxShadow: blackFridayConfig.badge_discount_shadow
-                    ? `0 10px 15px -3px ${blackFridayConfig.badge_discount_shadow}`
-                    : "0 10px 15px -3px rgba(220, 38, 38, 0.5)",
+                  boxShadow: "0 10px 15px -3px var(--badge-discount-shadow)",
                 }),
               }}
             >
-              {isBlackFriday
-                ? blackFridayConfig.banner_text || "BLACK FRIDAY"
+              {isCampaign
+                ? blackFridayConfig.banner_text || "DESTAQUE"
                 : "MAIS VENDIDO"}
             </div>
           </div>
@@ -399,25 +465,13 @@ export default function PlansScreen() {
         <div className="text-center mb-8">
           <h3
             className="text-2xl font-bold mb-3"
-            style={{
-              color: blackFridayConfig.card_text_color
-                ? blackFridayConfig.card_text_color
-                : isPopular
-                ? "#FFFFFF"
-                : "#0F172A",
-            }}
+            style={{ color: "var(--card-text)" }}
           >
             {plan.name}
           </h3>
           <p
             className="text-lg"
-            style={{
-              color: blackFridayConfig.card_text_secondary
-                ? blackFridayConfig.card_text_secondary
-                : isPopular
-                ? "#CBD5E1"
-                : "#475569",
-            }}
+            style={{ color: "var(--card-text-secondary)" }}
           >
             {plan.description}
           </p>
@@ -428,13 +482,7 @@ export default function PlansScreen() {
             <div className="flex items-end justify-center mb-2">
               <span
                 className="text-5xl sm:text-6xl font-bold tracking-tight"
-                style={{
-                  color: blackFridayConfig.price_discount_color
-                    ? blackFridayConfig.price_discount_color
-                    : isPopular
-                      ? "#FFFFFF"
-                      : "#0F172A",
-                }}
+                style={{ color: "var(--price-discount)" }}
               >
                 Gratuito
               </span>
@@ -444,25 +492,18 @@ export default function PlansScreen() {
               <div className="flex items-center justify-center gap-2 mb-1">
                 <span
                   className="text-lg line-through"
-                  style={{
-                    color: blackFridayConfig.price_original_color || "#9CA3AF",
-                  }}
+                  style={{ color: "var(--price-original)" }}
                 >
                   R$ {plan.originalPrice.toFixed(2).replace(".", ",")}
                 </span>
                 <span
                   className="text-sm font-bold px-3 py-1 rounded-full animate-pulse"
                   style={{
-                    backgroundColor:
-                      blackFridayConfig.discount_badge_color ||
-                      (isPopular ? "rgba(34, 197, 94, 0.2)" : "#D1FAE5"),
-                    color:
-                      blackFridayConfig.badge_discount_text ||
-                      (isPopular ? "#BBF7D0" : "#065F46"),
-                    ...(isBlackFriday &&
-                      blackFridayConfig.badge_discount_shadow && {
-                        boxShadow: `0 10px 15px -3px ${blackFridayConfig.badge_discount_shadow}`,
-                      }),
+                    backgroundColor: "var(--badge-discount-bg)",
+                    color: "var(--badge-discount-text)",
+                    ...(isCampaign && {
+                      boxShadow: "0 10px 15px -3px var(--badge-discount-shadow)",
+                    }),
                   }}
                 >
                   {Math.round(
@@ -475,25 +516,13 @@ export default function PlansScreen() {
               <div className="flex items-end justify-center">
                 <span
                   className="text-4xl font-bold"
-                  style={{
-                    color: blackFridayConfig.price_currency_color
-                      ? blackFridayConfig.price_currency_color
-                      : isPopular
-                      ? "#FFFFFF"
-                      : "#0F172A",
-                  }}
+                  style={{ color: "var(--price-currency)" }}
                 >
                   R$
                 </span>
                 <span
                   className="text-6xl font-bold ml-2"
-                  style={{
-                    color: blackFridayConfig.price_discount_color
-                      ? blackFridayConfig.price_discount_color
-                      : isPopular
-                      ? "#FFFFFF"
-                      : "#0F172A",
-                  }}
+                  style={{ color: "var(--price-discount)" }}
                 >
                   {plan.price.toFixed(2).replace(".", ",")}
                 </span>
@@ -503,25 +532,13 @@ export default function PlansScreen() {
             <div className="flex items-end justify-center mb-2">
               <span
                 className="text-4xl font-bold"
-                style={{
-                  color: blackFridayConfig.price_currency_color
-                    ? blackFridayConfig.price_currency_color
-                    : isPopular
-                    ? "#FFFFFF"
-                    : "#0F172A",
-                }}
+                style={{ color: "var(--price-currency)" }}
               >
                 R$
               </span>
               <span
                 className="text-6xl font-bold ml-2"
-                style={{
-                  color: blackFridayConfig.price_discount_color
-                    ? blackFridayConfig.price_discount_color
-                    : isPopular
-                    ? "#FFFFFF"
-                    : "#0F172A",
-                }}
+                style={{ color: "var(--price-discount)" }}
               >
                 {plan.price.toFixed(2).replace(".", ",")}
               </span>
@@ -529,13 +546,7 @@ export default function PlansScreen() {
           )}
           <p
             className="text-lg"
-            style={{
-              color: blackFridayConfig.card_text_secondary
-                ? blackFridayConfig.card_text_secondary
-                : isPopular
-                ? "#CBD5E1"
-                : "#475569",
-            }}
+            style={{ color: "var(--card-text-secondary)" }}
           >
             {plan.intervalLabel ?? "por mês"}
           </p>
@@ -547,21 +558,14 @@ export default function PlansScreen() {
               <div
                 className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
                 style={{
-                  backgroundColor:
-                    blackFridayConfig.checkmark_color || "#22C55E",
+                  backgroundColor: "var(--checkmark-color)",
                 }}
               >
                 <Check size={12} className="text-white" />
               </div>
               <span
                 className="text-base"
-                style={{
-                  color: blackFridayConfig.card_text_secondary
-                    ? blackFridayConfig.card_text_secondary
-                    : isPopular
-                    ? "#E2E8F0"
-                    : "#334155",
-                }}
+                style={{ color: "var(--card-text-secondary)" }}
               >
                 {feature}
               </span>
@@ -574,7 +578,7 @@ export default function PlansScreen() {
             onClick={() => handlePaymentClick(plan)}
             disabled={paymentLoading || pixCreating}
             className={`w-full py-4 px-6 text-lg font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
-              isBlackFriday ? "rounded-full transform hover:scale-105 disabled:transform-none" : "rounded-2xl brand-primary-button shadow-lg active:scale-[0.98]"
+              "rounded-2xl brand-primary-button shadow-lg active:scale-[0.98]"
             }`}
             style={getButtonStyle()}
             onMouseEnter={(e) => {
@@ -618,13 +622,7 @@ export default function PlansScreen() {
             plan.interval !== "one_time" && (
               <p
                 className="text-center text-sm mt-3"
-                style={{
-                  color: blackFridayConfig.card_text_secondary
-                    ? blackFridayConfig.card_text_secondary
-                    : isPopular
-                      ? "#CBD5E1"
-                      : "#64748B",
-                }}
+                style={{ color: "var(--card-text-secondary)" }}
               >
                 Os planos são renovados automaticamente.
               </p>
@@ -641,11 +639,11 @@ export default function PlansScreen() {
 
   if (plansLoading) {
     return (
-      <div className="min-h-screen bg-register-bg text-slate-900 font-sans">
-        <div className="max-w-6xl mx-auto px-6 py-12">
+      <div className="min-h-screen themed-page-bg font-sans">
+        <div className="relative z-10 max-w-6xl mx-auto px-6 py-12">
           <div className="flex flex-col items-center justify-center min-h-[60vh]">
-            <div className="w-12 h-12 border-4 border-register-primary border-t-transparent rounded-full animate-spin mb-4" />
-            <p className="text-slate-600 text-lg">Carregando planos...</p>
+            <div className="w-12 h-12 border-4 border-[var(--brand-accent)] border-t-transparent rounded-full animate-spin mb-4" />
+            <p className="themed-subtitle text-lg">Carregando planos...</p>
             {plansError && (
               <button
                 onClick={refetch}
@@ -661,103 +659,54 @@ export default function PlansScreen() {
   }
 
   return (
-    <div
-      className={`min-h-screen font-sans ${
-        blackFridayConfig.enabled ? "" : "bg-register-bg text-slate-900"
-      }`}
-      style={
-        blackFridayConfig.enabled
-          ? {
-              background: `linear-gradient(to bottom right, ${
-                blackFridayConfig.layout_background_start || "#000000"
-              }, ${blackFridayConfig.layout_background_mid || "#111827"}, ${
-                blackFridayConfig.layout_background_end || "#000000"
-              })`,
-            }
-          : undefined
-      }
-    >
-      <div className="max-w-6xl mx-auto px-6 pb-12 pt-4">
-        {/* Banner Black Friday */}
+    <div className="min-h-screen font-sans themed-page-bg">
+      <div className="relative z-10 max-w-6xl mx-auto px-6 pb-12 pt-4">
         {blackFridayConfig.enabled && (
-          <div className="relative mb-8 overflow-hidden">
-            <div
-              className="py-4 px-6 rounded-2xl shadow-2xl border-2"
-              style={{
-                background: `linear-gradient(to right, ${
-                  blackFridayConfig.banner_background_start || "#000000"
-                }, ${blackFridayConfig.banner_background_mid || "#7F1D1D"}, ${
-                  blackFridayConfig.banner_background_end || "#000000"
-                })`,
-                borderColor: blackFridayConfig.banner_border_color || "#DC2626",
-                color: blackFridayConfig.banner_text_color || "#FFFFFF",
-              }}
-            >
-              <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:flex-wrap sm:justify-center sm:gap-4">
-                <h2 className="text-2xl lg:text-3xl font-black tracking-wider">
-                  {blackFridayConfig.banner_text || "BLACK FRIDAY"}
-                </h2>
-                {blackFridayConfig.banner_subtitle && (
-                  <>
-                    <div
-                      className="hidden md:block w-px h-8"
-                      style={{
-                        backgroundColor:
-                          blackFridayConfig.banner_border_color || "#DC2626",
-                      }}
-                    />
-                    <p
-                      className="text-lg font-bold animate-pulse"
-                      style={{
-                        color:
-                          blackFridayConfig.banner_accent_text_color ||
-                          "#FDE047",
-                      }}
-                    >
-                      {blackFridayConfig.banner_subtitle}
-                    </p>
-                  </>
-                )}
+          <aside
+            className="relative mb-8 overflow-hidden rounded-2xl border-2 px-4 py-3.5 sm:px-5 sm:py-4"
+            style={{
+              background:
+                "linear-gradient(to right, var(--banner-bg-start), var(--banner-bg-mid), var(--banner-bg-end))",
+              borderColor: "var(--banner-border)",
+              color: "var(--banner-text)",
+              boxShadow:
+                "0 10px 28px -14px var(--layout-shadow, rgba(15, 40, 70, 0.28))",
+            }}
+            aria-label="Campanha ativa"
+          >
+            <div className="flex flex-col items-center gap-2.5 text-center sm:flex-row sm:items-center sm:justify-center sm:gap-4">
+              <div className="min-w-0 space-y-1">
+                <p className="text-[15px] font-semibold leading-snug tracking-wide sm:text-base">
+                  {blackFridayConfig.banner_text || "Campanha especial"}
+                </p>
+                {blackFridayConfig.banner_subtitle ? (
+                  <p
+                    className="text-sm font-medium leading-relaxed sm:text-[15px]"
+                    style={{ color: "var(--banner-accent-text)" }}
+                  >
+                    {blackFridayConfig.banner_subtitle}
+                  </p>
+                ) : null}
               </div>
             </div>
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer pointer-events-none" />
-          </div>
+          </aside>
         )}
 
-        {/* Header */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-2xl shadow-sm mb-6 overflow-hidden">
             <img src={logo} alt="" className="w-14 h-14 object-contain" />
           </div>
           <h1
-            className={`font-register text-3xl mb-2 ${
-              blackFridayConfig.enabled ? "" : "text-register-primary"
-            }`}
-            style={
-              blackFridayConfig.enabled
-                ? { color: blackFridayConfig.layout_text_primary || "#FFFFFF" }
-                : undefined
-            }
+            className="font-register text-3xl mb-2 themed-title"
           >
             {blackFridayConfig.brand_title || "Santo Encontro"}
           </h1>
-          <p
-            className={
-              blackFridayConfig.enabled
-                ? "text-sm italic"
-                : "text-slate-500 text-sm italic"
-            }
-            style={
-              blackFridayConfig.enabled
-                ? { color: blackFridayConfig.layout_text_secondary || "#D1D5DB" }
-                : undefined
-            }
-          >
+          <p className="text-sm italic themed-subtitle">
             {blackFridayConfig.brand_subtitle ||
               "Juntos na fé, unidos pelo amor"}
           </p>
           {!blackFridayConfig.enabled && (
-            <p className="text-slate-500 text-sm mt-2 max-w-md mx-auto">
+            <p className="themed-muted text-sm mt-2 max-w-md mx-auto">
               Escolha o plano ideal para sua jornada.
             </p>
           )}
@@ -796,7 +745,12 @@ export default function PlansScreen() {
 
         <Dialog
           open={showPaymentModal}
-          onOpenChange={(open) => !open && setShowPaymentModal(false)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setShowPaymentModal(false);
+              setShowCardFields(false);
+            }
+          }}
         >
           {selectedPlan && (
             <DialogContent className="sm:max-w-md rounded-3xl border-slate-100 shadow-sm">
@@ -817,19 +771,96 @@ export default function PlansScreen() {
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="mt-5 space-y-2">
+              <div className="mt-5 space-y-3">
+                {showCardFields && (
+                  <div className="space-y-2 rounded-2xl border border-slate-100 p-3">
+                    <input
+                      type="text"
+                      value={cardHolderName}
+                      onChange={(event) => setCardHolderName(event.target.value)}
+                      placeholder="Nome no cartão"
+                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-2xl text-sm"
+                    />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={cardNumber}
+                      onChange={(event) => setCardNumber(event.target.value)}
+                      placeholder="Número do cartão"
+                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-2xl text-sm"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={cardExpiry}
+                        onChange={(event) => setCardExpiry(event.target.value)}
+                        placeholder="MM/AA"
+                        className="w-full px-4 py-3 bg-slate-50 border-none rounded-2xl text-sm"
+                      />
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={cardCcv}
+                        onChange={(event) => setCardCcv(event.target.value)}
+                        placeholder="CVV"
+                        className="w-full px-4 py-3 bg-slate-50 border-none rounded-2xl text-sm"
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={postalCode}
+                      onChange={(event) => setPostalCode(event.target.value)}
+                      placeholder="CEP"
+                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-2xl text-sm"
+                    />
+                    <input
+                      type="text"
+                      value={addressNumber}
+                      onChange={(event) => setAddressNumber(event.target.value)}
+                      placeholder="Número do endereço"
+                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-2xl text-sm"
+                    />
+                    <input
+                      type="text"
+                      inputMode="tel"
+                      value={phone}
+                      onChange={(event) => setPhone(event.target.value)}
+                      placeholder="Telefone"
+                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-2xl text-sm"
+                    />
+                  </div>
+                )}
+
                 <button
                   type="button"
-                  onClick={() => handlePayment(selectedPlan, "boleto_card")}
-                  disabled={paymentLoading}
+                  onClick={() => handlePayment(selectedPlan, "credit_card")}
+                  disabled={paymentLoading || pixCreating}
                   className="w-full p-4 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-left flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
                     <CreditCard className="text-blue-600 w-5 h-5" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="font-medium text-slate-900 block">Boleto ou Cartão</span>
-                    <span className="text-xs text-slate-500">Boleto bancário ou cartão de crédito</span>
+                    <span className="font-medium text-slate-900 block">Cartão de crédito</span>
+                    <span className="text-xs text-slate-500">
+                      {showCardFields ? "Confirmar pagamento no cartão" : "Assinatura recorrente Asaas"}
+                    </span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handlePayment(selectedPlan, "boleto")}
+                  disabled={paymentLoading || pixCreating}
+                  className="w-full p-4 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-left flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+                    <Receipt className="text-amber-600 w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium text-slate-900 block">Boleto</span>
+                    <span className="text-xs text-slate-500">Assinatura com boleto bancário</span>
                   </div>
                 </button>
 
@@ -845,13 +876,13 @@ export default function PlansScreen() {
                   <div className="flex-1 min-w-0">
                     <span className="font-medium text-slate-900 block">PIX</span>
                     <span className="text-xs text-slate-500">
-                      {pixCreating ? "Gerando..." : "Aprovação instantânea"}
+                      {pixCreating ? "Gerando..." : "Assinatura com QR Code Asaas"}
                     </span>
                   </div>
                 </button>
               </div>
 
-              {paymentLoading && (
+              {(paymentLoading || pixCreating) && (
                 <p className="text-center text-sm text-slate-500 mt-4">Processando...</p>
               )}
             </DialogContent>
@@ -903,7 +934,7 @@ export default function PlansScreen() {
                     rel="noopener noreferrer"
                     className="text-sm text-green-600 hover:underline"
                   >
-                    Abrir página de pagamento no Mercado Pago
+                    Abrir página de pagamento Asaas
                   </a>
                 </div>
               )}

@@ -1,24 +1,25 @@
 import { useBlackFriday } from "./useBlackFriday";
 import {
-  EXPO_CATOLICA_BRAND,
-  getCampaignPageBackground,
-  isDarkCampaignLayout,
+  getThemePageBackground,
+  isDarkThemeLayout,
+  mergeAdminThemeConfig,
 } from "../lib/app-theme";
 
 export function useThemedPage() {
   const { config, loading } = useBlackFriday();
-  const darkCampaign = isDarkCampaignLayout(config);
-
-  const pageBackground = darkCampaign
-    ? getCampaignPageBackground(config)
-    : undefined;
+  const theme = mergeAdminThemeConfig(config);
+  const darkLayout = isDarkThemeLayout(theme);
 
   return {
-    config,
+    config: theme,
     loading,
-    darkCampaign,
-    pageBackground,
-    titleColor: EXPO_CATOLICA_BRAND.textPrimary,
-    subtitleColor: EXPO_CATOLICA_BRAND.textSecondary,
+    darkCampaign: darkLayout,
+    darkLayout,
+    campaignActive: theme.enabled,
+    pageBackground: getThemePageBackground(theme),
+    titleColor: theme.layout_text_primary,
+    subtitleColor: theme.layout_text_secondary,
+    brandTitle: theme.brand_title,
+    brandSubtitle: theme.brand_subtitle,
   };
 }

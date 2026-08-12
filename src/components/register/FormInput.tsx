@@ -75,7 +75,9 @@ export function FormInput({
         </p>
       )}
       {helperText && !fieldError && (
-        <p className="text-[10px] text-slate-400 ml-1">{helperText}</p>
+        <p className="text-[12px] text-[var(--checkout-ink-2,#55647A)] ml-1 leading-snug">
+          {helperText}
+        </p>
       )}
     </div>
   );
