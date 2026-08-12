@@ -7,6 +7,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "../lib/supabase";
 import { geocodeAddress, formatAddressForGeocoding } from "../lib/geocoding";
 import { getTrialDays } from "../lib/trial-days";
+import { fetchInactiveRegistrationStatus } from "../lib/inactive-registration";
 
 function isValidCPF(cpf: string): boolean {
   cpf = cpf.replace(/\D/g, "");
@@ -275,6 +276,7 @@ export function useRegister() {
           lastName: data.lastName,
           phone: data.phone || null,
           email: data.email,
+          cpf: data.cpf.replace(/\D/g, ""),
         },
         { onConflict: "id" }
       );
@@ -391,13 +393,12 @@ export function useRegister() {
         return;
       }
 
-      const { data: inactiveUser, error: inactiveUserError } = await supabase
-        .from("inactive_users")
-        .select("email, cpf")
-        .or(`email.eq.${data.email},cpf.eq.${data.cpf}`)
-        .single();
+      const inactive = await fetchInactiveRegistrationStatus({
+        email: data.email,
+        cpf: data.cpf,
+      });
 
-      if (inactiveUser && !inactiveUserError) {
+      if (inactive.exists) {
         throw new Error(
           "Este email ou CPF já foi registrado anteriormente e não pode ser usado para novo cadastro."
         );
@@ -467,6 +468,7 @@ export function useRegister() {
           lastName: data.lastName,
           phone: data.phone || null,
           email: data.email,
+          cpf: data.cpf.replace(/\D/g, ""),
         },
         { onConflict: "id" }
       );
@@ -624,14 +626,9 @@ export function useRegister() {
 
   const checkInactiveUser = async (email: string) => {
     try {
-      const { data: inactiveUser, error: inactiveUserError } = await supabase
-        .from("inactive_users")
-        .select("email, reason")
-        .eq("email", email)
-        .maybeSingle();
-
-      if (inactiveUser && !inactiveUserError) {
-        return inactiveUser.reason;
+      const inactive = await fetchInactiveRegistrationStatus({ email });
+      if (inactive.exists) {
+        return inactive.reason;
       }
       return null;
     } catch (error) {

@@ -1,38 +1,88 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@300;400;500;600;700&display=swap");
 
 @import "tailwindcss";
 
+@theme inline {
+  --color-register-primary: var(--register-primary);
+  --color-register-secondary: var(--register-secondary);
+  --color-register-bg: var(--register-bg);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-accent-hover: var(--brand-accent-hover);
+  --color-brand-gold: var(--brand-gold);
+}
+
 @layer base {
   :root {
-    --register-primary: #00255d;
-    --register-secondary: #93c5fd;
-    --register-bg: #051c3f;
-    --brand-accent: #ff7415;
-    --brand-accent-hover: #e8650f;
-    --brand-gold: #d4af37;
-    --metallic-dark: #051c3f;
-    --metallic-mid: #00255d;
-    --metallic-light: #0a3d7a;
-    --metallic-sheen: rgba(147, 197, 253, 0.14);
-    --layout-bg-start: #051c3f;
-    --layout-bg-mid: #00255d;
-    --layout-bg-end: #0a3d7a;
-    --layout-text-primary: #ffffff;
-    --layout-text-secondary: #e3e3e4;
-    --layout-text-muted: rgba(227, 227, 228, 0.75);
-    --layout-text-on-card: #00255d;
-    --button-primary-bg: #ff7415;
-    --button-primary-hover: #e8650f;
+    --register-primary: #1f2937;
+    --register-secondary: #6b7280;
+    --register-bg: #f9fafb;
+    --brand-accent: #1e293b;
+    --brand-accent-hover: #334155;
+    --brand-gold: #fde047;
+    --font-display: "Fraunces", Georgia, serif;
+    --font-body: "Inter", system-ui, sans-serif;
+    --metallic-dark: #f9fafb;
+    --metallic-mid: #f3f4f6;
+    --metallic-light: #ffffff;
+    --metallic-sheen: transparent;
+    --layout-bg-start: #f9fafb;
+    --layout-bg-mid: #f3f4f6;
+    --layout-bg-end: #ffffff;
+    --layout-text-primary: #1f2937;
+    --layout-text-secondary: #6b7280;
+    --layout-text-muted: rgba(107, 114, 128, 0.75);
+    --layout-text-on-card: #1f2937;
+    --button-primary-bg: #1e293b;
+    --button-primary-hover: #334155;
     --button-primary-text: #ffffff;
-    --layout-card-bg: rgba(255, 255, 255, 0.97);
-    --layout-card-border: rgba(212, 175, 55, 0.35);
-    --layout-shadow: rgba(0, 37, 93, 0.45);
-    --input-focus-border: #ff7415;
-    --theme-mode: brand;
+    --button-primary-shadow: rgba(0, 0, 0, 0.1);
+    --layout-card-bg: #ffffff;
+    --layout-card-border: #e5e7eb;
+    --layout-shadow: rgba(0, 0, 0, 0.1);
+    --input-focus-border: #1e293b;
+    --card-bg-start: #ffffff;
+    --card-bg-mid: #ffffff;
+    --card-bg-end: #ffffff;
+    --card-border: #e5e7eb;
+    --card-border-hover: #d1d5db;
+    --card-text: #1f2937;
+    --card-text-secondary: #6b7280;
+    --banner-bg-start: #000000;
+    --banner-bg-mid: #7f1d1d;
+    --banner-bg-end: #000000;
+    --banner-border: #dc2626;
+    --banner-text: #ffffff;
+    --banner-accent-text: #fde047;
+    --price-original: #9ca3af;
+    --price-discount: #1f2937;
+    --price-currency: #1f2937;
+    --badge-discount-bg: #10b981;
+    --badge-discount-text: #ffffff;
+    --badge-discount-shadow: rgba(16, 185, 129, 0.3);
+    --badge-popular-bg: #3b82f6;
+    --badge-popular-text: #ffffff;
+    --glow-color: rgba(59, 130, 246, 0.3);
+    --ring-color: rgba(59, 130, 246, 0.2);
+    --checkmark-color: #10b981;
+    --checkout-ink: #1f2937;
+    --checkout-ink-2: #6b7280;
+    --checkout-ink-3: #9ca3af;
+    --checkout-sunken: #f3f4f6;
+    --checkout-line: #e5e7eb;
+    --checkout-line-strong: #d1d5db;
+    --checkout-primary-soft: #e2e8f0;
+    --checkout-navy-deep: #1f2937;
+    --checkout-success: #10b981;
+    --checkout-success-soft: #ecfdf5;
+    --theme-mode: admin;
   }
 
   body {
-    font-family: "Inter", sans-serif;
+    font-family: var(--font-body, "Inter", sans-serif);
+  }
+
+  .checkout-pencil {
+    font-family: var(--font-body, "Inter", sans-serif);
   }
 }
 
