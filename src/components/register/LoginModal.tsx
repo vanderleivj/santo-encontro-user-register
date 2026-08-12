@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Eye, EyeOff, Lock } from "lucide-react";
 import { supabase } from "../../lib/supabase";
+import { fetchInactiveRegistrationStatus } from "../../lib/inactive-registration";
 import {
   Dialog,
   DialogContent,
@@ -61,28 +62,20 @@ export function LoginModal({
       }
 
       if (data.user) {
-        // Verificar se o usuário está na blacklist
-        const { data: inactiveUser, error: inactiveUserError } = await supabase
-          .from("inactive_users")
-          .select("email, reason")
-          .eq("email", email)
-          .maybeSingle();
+        const inactive = await fetchInactiveRegistrationStatus({ email });
 
-        if (inactiveUser && !inactiveUserError && inactiveUser.reason) {
-          // Usuário está na blacklist
+        if (inactive.exists && inactive.reason) {
           if (onInactiveUser) {
-            onInactiveUser(inactiveUser.reason);
+            onInactiveUser(inactive.reason);
           } else {
             setError(
               "Sua conta está inativa. Entre em contato conosco para mais informações."
             );
           }
-          // Fazer logout para não manter a sessão ativa
           await supabase.auth.signOut();
           return;
         }
 
-        // Usuário não está na blacklist, prosseguir com login
         onLoginSuccess();
       }
     } catch (err: any) {
