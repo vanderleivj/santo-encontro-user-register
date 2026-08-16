@@ -15,6 +15,7 @@ interface CheckoutShellProps {
   readonly children: ReactNode;
   readonly showSummary?: boolean;
   readonly showChangePlan?: boolean;
+  readonly showCoupon?: boolean;
   readonly fullWidth?: boolean;
   readonly bareContent?: boolean;
   readonly showSupport?: boolean;
@@ -31,6 +32,7 @@ export function CheckoutShell({
   children,
   showSummary = true,
   showChangePlan = true,
+  showCoupon = false,
   fullWidth = false,
   bareContent = false,
   showSupport = true,
@@ -42,7 +44,7 @@ export function CheckoutShell({
   const isAppWebView = useIsAppWebView();
   const shouldShowHeader = showHeader ?? !isAppWebView;
   const shouldShowStepper = showStepper ?? !isAppWebView;
-  const withSidebar = showSummary && !fullWidth && !isAppWebView;
+  const withSidebar = showSummary && !fullWidth;
   const mainMax =
     contentMaxWidthClassName ||
     (withSidebar ? "max-w-[1140px]" : "max-w-[880px]");
@@ -114,10 +116,12 @@ export function CheckoutShell({
               <div className="lg:sticky lg:top-6 space-y-4">
                 <OrderSummary
                   showChangePlan={showChangePlan}
+                  showCoupon={showCoupon}
                   className="hidden lg:block"
                 />
                 <OrderSummary
                   showChangePlan={showChangePlan}
+                  showCoupon={showCoupon}
                   className="lg:hidden"
                 />
               </div>

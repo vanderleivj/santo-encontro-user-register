@@ -1,12 +1,16 @@
 import { useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import {
   ChevronRight,
   MessageCircle,
   ReceiptText,
   RefreshCw,
   ShieldCheck,
+  Tag,
+  X,
 } from "lucide-react";
 import { useCheckoutStore } from "./checkout-store";
+import { mapPlanIntervalToPlanType, previewCoupon } from "../lib/coupons";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -44,15 +48,136 @@ const SECURITY_ITEMS = [
 
 interface OrderSummaryProps {
   readonly showChangePlan?: boolean;
+  readonly showCoupon?: boolean;
   readonly className?: string;
+}
+
+function CouponField() {
+  const selectedPlan = useCheckoutStore((state) => state.selectedPlan);
+  const couponInput = useCheckoutStore((state) => state.couponInput);
+  const appliedCoupon = useCheckoutStore((state) => state.appliedCoupon);
+  const setCouponInput = useCheckoutStore((state) => state.setCouponInput);
+  const setAppliedCoupon = useCheckoutStore((state) => state.setAppliedCoupon);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!selectedPlan || selectedPlan.isFree || selectedPlan.price <= 0) {
+    return null;
+  }
+
+  const applyCoupon = async () => {
+    const code = couponInput.trim().toUpperCase();
+    if (!code) {
+      setError("Informe um código de cupom.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const preview = await previewCoupon(
+        code,
+        mapPlanIntervalToPlanType(selectedPlan.interval),
+        selectedPlan.price
+      );
+      if (
+        !preview.ok ||
+        !preview.code ||
+        preview.discountAmount === undefined ||
+        preview.finalAmount === undefined ||
+        preview.originalAmount === undefined
+      ) {
+        setAppliedCoupon(null);
+        setError(preview.error || "Cupom inválido.");
+        return;
+      }
+
+      setAppliedCoupon({
+        code: preview.code,
+        discountType: preview.discountType || "",
+        discountValue: preview.discountValue ?? 0,
+        discountAmount: preview.discountAmount,
+        originalAmount: preview.originalAmount,
+        finalAmount: preview.finalAmount,
+      });
+      setCouponInput(preview.code);
+    } catch {
+      setAppliedCoupon(null);
+      setError("Não foi possível validar o cupom.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (appliedCoupon) {
+    return (
+      <div className="rounded-lg border border-[var(--checkout-line,#E6DFD4)] px-3 py-2.5 flex items-center justify-between gap-2">
+        <div className="min-w-0 flex items-center gap-2">
+          <Tag
+            className="w-3.5 h-3.5 text-[var(--checkout-success,#15803D)] shrink-0"
+            aria-hidden
+          />
+          <span className="text-sm font-medium text-[var(--checkout-ink,#0F2846)] truncate">
+            {appliedCoupon.code}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setAppliedCoupon(null);
+            setError(null);
+          }}
+          className="text-[var(--checkout-ink-2,#55647A)] hover:text-[var(--checkout-ink,#0F2846)]"
+          aria-label="Remover cupom"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex gap-2">
+        <input
+          value={couponInput}
+          onChange={(event) => {
+            setCouponInput(event.target.value.toUpperCase());
+            setError(null);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              void applyCoupon();
+            }
+          }}
+          placeholder="Cupom de desconto"
+          className="min-w-0 flex-1 rounded-lg border border-[var(--checkout-line-strong,#CFC5B6)] bg-white px-3 py-2 text-sm text-[var(--checkout-ink,#0F2846)] placeholder:text-[var(--checkout-ink-2,#55647A)]"
+        />
+        <button
+          type="button"
+          onClick={() => void applyCoupon()}
+          disabled={loading}
+          className="shrink-0 rounded-lg border border-[var(--checkout-line-strong,#CFC5B6)] px-3 py-2 text-sm font-medium text-[var(--checkout-ink,#0F2846)] hover:border-[var(--brand-accent)] disabled:opacity-50"
+        >
+          {loading ? "..." : "Aplicar"}
+        </button>
+      </div>
+      {error ? (
+        <p className="text-xs text-red-600">{error}</p>
+      ) : null}
+    </div>
+  );
 }
 
 export function OrderSummary({
   showChangePlan = true,
+  showCoupon = false,
   className = "",
 }: OrderSummaryProps) {
   const navigate = useNavigate();
   const selectedPlan = useCheckoutStore((state) => state.selectedPlan);
+  const appliedCoupon = useCheckoutStore((state) => state.appliedCoupon);
 
   if (!selectedPlan) {
     return (
@@ -82,6 +207,11 @@ export function OrderSummary({
     : 0;
   const periodLabel =
     selectedPlan.intervalLabel || planPeriodLabel(selectedPlan.interval);
+  const couponDiscount = appliedCoupon?.discountAmount ?? 0;
+  const totalToday = appliedCoupon
+    ? appliedCoupon.finalAmount
+    : selectedPlan.price;
+  const renewalAmount = selectedPlan.price;
 
   return (
     <aside className={`w-full lg:w-[380px] space-y-4 ${className}`}>
@@ -130,7 +260,26 @@ export function OrderSummary({
               </span>
             </div>
           ) : null}
+
+          {appliedCoupon ? (
+            <div className="flex justify-between gap-3 items-center">
+              <span className="text-[var(--checkout-ink-2,#55647A)]">
+                Cupom {appliedCoupon.code}
+              </span>
+              <span className="font-medium text-[var(--checkout-success,#15803D)] tabular-nums shrink-0">
+                − {formatCurrency(couponDiscount)}
+              </span>
+            </div>
+          ) : null}
         </div>
+
+        {showCoupon ? <CouponField /> : null}
+
+        {appliedCoupon ? (
+          <p className="text-xs leading-[1.45] text-[var(--checkout-ink-2,#55647A)]">
+            Cupom válido somente na primeira cobrança.
+          </p>
+        ) : null}
 
         <div className="h-px w-full bg-[var(--checkout-line,#E6DFD4)]" />
 
@@ -139,7 +288,7 @@ export function OrderSummary({
             Total hoje
           </span>
           <span className="text-lg font-bold text-[var(--checkout-ink,#0F2846)] tabular-nums">
-            {formatCurrency(selectedPlan.price)}
+            {formatCurrency(totalToday)}
           </span>
         </div>
 
@@ -151,7 +300,7 @@ export function OrderSummary({
             />
             <p className="text-xs leading-[1.45] text-[var(--checkout-ink-2,#55647A)]">
               Renova automaticamente em {renewalDateLabel(selectedPlan.interval)}{" "}
-              por {formatCurrency(selectedPlan.price)}. Você pode cancelar a
+              por {formatCurrency(renewalAmount)}. Você pode cancelar a
               qualquer momento pelo app.
             </p>
           </div>

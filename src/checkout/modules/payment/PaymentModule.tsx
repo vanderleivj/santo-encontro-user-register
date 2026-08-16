@@ -225,6 +225,7 @@ export function PaymentModule() {
       step="payment"
       title="Como você quer pagar?"
       subtitle="Escolha o método. O acesso é liberado após a confirmação."
+      showCoupon
     >
       <div className="space-y-3">
         {error ? (

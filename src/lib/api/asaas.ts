@@ -16,6 +16,9 @@ export interface AsaasSubscriptionResponse {
   qrCode: string | null;
   qrCodeBase64: string | null;
   expiresAt: number;
+  couponCode?: string | null;
+  discountAmount?: number | null;
+  originalAmount?: number | null;
 }
 
 export interface CreateAsaasSubscriptionInput {
@@ -39,6 +42,7 @@ export interface CreateAsaasSubscriptionInput {
     phone: string;
     mobilePhone?: string;
   };
+  couponCode?: string;
   remoteIp?: string;
 }
 

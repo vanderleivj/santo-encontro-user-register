@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   createAsaasSubscription,
@@ -8,6 +8,7 @@ import {
 import { supabase } from "../../../lib/supabase";
 import type { PlanConfig } from "../../../hooks/usePlans";
 import { isAsaasPaymentConfirmed } from "./asaas-payment-status";
+import { useCheckoutStore } from "../../checkout-store";
 
 export type PaymentMethod = "pix" | "credit_card" | "boleto";
 
@@ -48,6 +49,7 @@ function billingTypeFromMethod(method: PaymentMethod): AsaasBillingType {
 
 export function useAsaasCheckout(plan: PlanConfig | null) {
   const navigate = useNavigate();
+  const appliedCoupon = useCheckoutStore((state) => state.appliedCoupon);
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +59,7 @@ export function useAsaasCheckout(plan: PlanConfig | null) {
   const [pollingMethod, setPollingMethod] = useState<PaymentMethod | null>(
     null
   );
+  const chargedAmountRef = useRef(plan?.price ?? 0);
 
   const goToSuccess = useCallback(
     (method: PaymentMethod) => {
@@ -67,7 +70,7 @@ export function useAsaasCheckout(plan: PlanConfig | null) {
           trial: undefined,
           days: undefined,
           planLabel: plan.name,
-          amount: String(plan.price),
+          amount: String(chargedAmountRef.current || plan.price),
           method,
         },
       });
@@ -148,6 +151,7 @@ export function useAsaasCheckout(plan: PlanConfig | null) {
 
     setLoading(true);
     setError(null);
+    chargedAmountRef.current = appliedCoupon?.finalAmount ?? plan.price;
     if (method !== "boleto") {
       setBoletoUrl(null);
     }
@@ -258,8 +262,10 @@ export function useAsaasCheckout(plan: PlanConfig | null) {
         planType,
         billingType,
         cpf: cpfDigits,
+        couponCode: appliedCoupon?.code,
         ...creditCardPayload,
       });
+      chargedAmountRef.current = response.amount;
 
       if (billingType === "CREDIT_CARD") {
         if (response.status === "active") {
