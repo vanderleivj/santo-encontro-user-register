@@ -34,11 +34,17 @@ export const profileSchema = z
       }, "É necessário ter 18 anos ou mais"),
     gender: z.string().min(1, "Gênero é obrigatório"),
     temFilhos: z.string().min(1, "Esta informação é obrigatória"),
-    city: z.string().min(1, "Cidade é obrigatória"),
-    state: z.string().min(1, "Estado é obrigatório"),
-    address: z.string().optional(),
+    city: z.string().min(1, "Informe um CEP válido para preencher a cidade"),
+    state: z.string().min(1, "Informe um CEP válido para preencher o estado"),
+    address: z.string().min(1, "Endereço é obrigatório"),
     complement: z.string().optional(),
-    zip_code: z.string().optional(),
+    zip_code: z
+      .string()
+      .min(1, "CEP é obrigatório")
+      .refine(
+        (value) => value.replace(/\D/g, "").length === 8,
+        "CEP inválido"
+      ),
     jaCasado: z.string().min(1, "Esta informação é obrigatória"),
     nulidadeMatrimonial: z.string().optional(),
     isViuvo: z.string().optional(),

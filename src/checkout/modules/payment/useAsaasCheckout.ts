@@ -298,9 +298,12 @@ export function useAsaasCheckout(plan: PlanConfig | null) {
         return;
       }
 
-      const expiresAt =
-        typeof response.expiresAt === "number" && response.expiresAt > 1e12
-          ? response.expiresAt
+      const expiresAtMs =
+        typeof response.expiresAt === "number" &&
+        Number.isFinite(response.expiresAt)
+          ? response.expiresAt > 1e12
+            ? response.expiresAt
+            : response.expiresAt * 1000
           : Date.now() + 30 * 60 * 1000;
 
       setPixData({
@@ -310,7 +313,7 @@ export function useAsaasCheckout(plan: PlanConfig | null) {
           : "",
         qrCodeBase64: response.qrCodeBase64 || undefined,
         copyPaste: response.qrCode || "",
-        expiresAt,
+        expiresAt: expiresAtMs,
         invoiceUrl: response.invoiceUrl || undefined,
       });
 

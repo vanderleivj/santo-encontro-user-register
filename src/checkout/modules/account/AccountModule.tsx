@@ -16,7 +16,7 @@ import { FormInput } from "../../../components/register/FormInput";
 import { PasswordInput } from "../../../components/register/PasswordInput";
 import { FormattedPhoneInput } from "../../../components/FormattedPhoneInput";
 import { supabase } from "../../../lib/supabase";
-import { fetchInactiveRegistrationStatus } from "../../../lib/inactive-registration";
+import { fetchInactiveRegistrationStatus, INACTIVE_REGISTRATION_MESSAGE } from "../../../lib/inactive-registration";
 
 export function AccountModule() {
   const navigate = useNavigate();
@@ -66,9 +66,7 @@ export function AccountModule() {
       });
 
       if (inactive.exists) {
-        throw new Error(
-          "Este e-mail já foi registrado anteriormente e não pode ser usado para novo cadastro."
-        );
+        throw new Error(INACTIVE_REGISTRATION_MESSAGE);
       }
 
       const { data: existingUserByEmail } = await supabase
@@ -131,6 +129,7 @@ export function AccountModule() {
       }
 
       const userId = user?.id ?? authData.user.id;
+      useCheckoutStore.getState().bindCheckoutOwner(userId);
 
       const { error: userError } = await supabase.from("users").upsert(
         {

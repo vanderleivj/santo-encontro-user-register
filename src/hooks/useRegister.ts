@@ -7,7 +7,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "../lib/supabase";
 import { geocodeAddress, formatAddressForGeocoding } from "../lib/geocoding";
 import { getTrialDays } from "../lib/trial-days";
-import { fetchInactiveRegistrationStatus } from "../lib/inactive-registration";
+import { fetchInactiveRegistrationStatus, INACTIVE_REGISTRATION_MESSAGE } from "../lib/inactive-registration";
 
 function isValidCPF(cpf: string): boolean {
   cpf = cpf.replace(/\D/g, "");
@@ -628,7 +628,7 @@ export function useRegister() {
     try {
       const inactive = await fetchInactiveRegistrationStatus({ email });
       if (inactive.exists) {
-        return inactive.reason;
+        return INACTIVE_REGISTRATION_MESSAGE;
       }
       return null;
     } catch (error) {

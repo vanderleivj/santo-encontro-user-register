@@ -116,10 +116,6 @@ export const usePlans = () => {
           name: plan.name,
           description: plan.description || "",
           price: plan.price,
-          originalPrice:
-            plan.original_price && plan.original_price > plan.price
-              ? plan.original_price
-              : undefined,
           currency: plan.currency,
           interval: plan.interval === "one_time" ? null : plan.interval,
           interval_count: plan.interval === "one_time" ? null : 1,

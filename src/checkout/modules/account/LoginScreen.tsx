@@ -12,7 +12,7 @@ import {
   registerInputClass,
   registerLabelClass,
 } from "../../../components/register/form-styles";
-import { fetchInactiveRegistrationStatus } from "../../../lib/inactive-registration";
+import { fetchInactiveRegistrationStatus, INACTIVE_REGISTRATION_MESSAGE } from "../../../lib/inactive-registration";
 
 export function LoginScreen() {
   const navigate = useNavigate();
@@ -37,10 +37,7 @@ export function LoginScreen() {
     try {
       const inactive = await fetchInactiveRegistrationStatus({ email });
       if (inactive.exists) {
-        toast.error(
-          inactive.reason ||
-            "Esta conta está inativa. Entre em contato conosco para mais informações."
-        );
+        toast.error(INACTIVE_REGISTRATION_MESSAGE);
         return;
       }
 
@@ -57,6 +54,7 @@ export function LoginScreen() {
         throw new Error("Sessão inválida após o login.");
       }
 
+      useCheckoutStore.getState().bindCheckoutOwner(user.id);
       useCheckoutStore.getState().setAccountCompleted(true);
 
       const preferredNext = search.next;

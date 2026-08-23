@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Eye, EyeOff, Lock } from "lucide-react";
 import { supabase } from "../../lib/supabase";
-import { fetchInactiveRegistrationStatus } from "../../lib/inactive-registration";
+import { fetchInactiveRegistrationStatus, INACTIVE_REGISTRATION_MESSAGE } from "../../lib/inactive-registration";
 import {
   Dialog,
   DialogContent,
@@ -64,13 +64,11 @@ export function LoginModal({
       if (data.user) {
         const inactive = await fetchInactiveRegistrationStatus({ email });
 
-        if (inactive.exists && inactive.reason) {
+        if (inactive.exists) {
           if (onInactiveUser) {
-            onInactiveUser(inactive.reason);
+            onInactiveUser(INACTIVE_REGISTRATION_MESSAGE);
           } else {
-            setError(
-              "Sua conta está inativa. Entre em contato conosco para mais informações."
-            );
+            setError(INACTIVE_REGISTRATION_MESSAGE);
           }
           await supabase.auth.signOut();
           return;

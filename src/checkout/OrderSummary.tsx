@@ -198,13 +198,6 @@ export function OrderSummary({
     );
   }
 
-  const original = selectedPlan.originalPrice ?? null;
-  const hasDiscount =
-    original !== null && original > selectedPlan.price && selectedPlan.price > 0;
-  const discountAmount = hasDiscount ? original - selectedPlan.price : 0;
-  const discountPercent = hasDiscount
-    ? Math.round((discountAmount / original) * 100)
-    : 0;
   const periodLabel =
     selectedPlan.intervalLabel || planPeriodLabel(selectedPlan.interval);
   const couponDiscount = appliedCoupon?.discountAmount ?? 0;
@@ -246,20 +239,9 @@ export function OrderSummary({
               {selectedPlan.name} · {periodLabel}
             </span>
             <span className="font-medium text-[var(--checkout-ink,#0F2846)] tabular-nums shrink-0">
-              {formatCurrency(hasDiscount ? original : selectedPlan.price)}
+              {formatCurrency(selectedPlan.price)}
             </span>
           </div>
-
-          {hasDiscount ? (
-            <div className="flex justify-between gap-3 items-center">
-              <span className="text-[var(--checkout-ink-2,#55647A)]">
-                Desconto de lançamento ({discountPercent}%)
-              </span>
-              <span className="font-medium text-[var(--checkout-success,#15803D)] tabular-nums shrink-0">
-                − {formatCurrency(discountAmount)}
-              </span>
-            </div>
-          ) : null}
 
           {appliedCoupon ? (
             <div className="flex justify-between gap-3 items-center">

@@ -14,6 +14,7 @@ export interface AppliedCoupon {
 }
 
 interface CheckoutState {
+  ownerUserId: string | null;
   selectedPlan: PlanConfig | null;
   accountCompleted: boolean;
   profileCompleted: boolean;
@@ -24,17 +25,23 @@ interface CheckoutState {
   setProfileCompleted: (value: boolean) => void;
   setCouponInput: (value: string) => void;
   setAppliedCoupon: (coupon: AppliedCoupon | null) => void;
+  bindCheckoutOwner: (userId: string | null) => void;
   resetCheckout: () => void;
 }
 
+const EMPTY_CHECKOUT = {
+  selectedPlan: null as PlanConfig | null,
+  accountCompleted: false,
+  profileCompleted: false,
+  couponInput: "",
+  appliedCoupon: null as AppliedCoupon | null,
+};
+
 export const useCheckoutStore = create<CheckoutState>()(
   persist(
-    (set) => ({
-      selectedPlan: null,
-      accountCompleted: false,
-      profileCompleted: false,
-      couponInput: "",
-      appliedCoupon: null,
+    (set, get) => ({
+      ownerUserId: null,
+      ...EMPTY_CHECKOUT,
       setSelectedPlan: (plan) =>
         set({
           selectedPlan: plan,
@@ -45,18 +52,30 @@ export const useCheckoutStore = create<CheckoutState>()(
       setProfileCompleted: (value) => set({ profileCompleted: value }),
       setCouponInput: (value) => set({ couponInput: value }),
       setAppliedCoupon: (coupon) => set({ appliedCoupon: coupon }),
+      bindCheckoutOwner: (userId) => {
+        const currentOwner = get().ownerUserId;
+        if (!userId) {
+          set({ ownerUserId: null, ...EMPTY_CHECKOUT });
+          return;
+        }
+        if (currentOwner && currentOwner !== userId) {
+          set({ ownerUserId: userId, ...EMPTY_CHECKOUT });
+          return;
+        }
+        if (!currentOwner) {
+          set({ ownerUserId: userId });
+        }
+      },
       resetCheckout: () =>
         set({
-          selectedPlan: null,
-          accountCompleted: false,
-          profileCompleted: false,
-          couponInput: "",
-          appliedCoupon: null,
+          ownerUserId: get().ownerUserId,
+          ...EMPTY_CHECKOUT,
         }),
     }),
     {
       name: "santo-checkout",
       partialize: (state) => ({
+        ownerUserId: state.ownerUserId,
         selectedPlan: state.selectedPlan,
         accountCompleted: state.accountCompleted,
         profileCompleted: state.profileCompleted,

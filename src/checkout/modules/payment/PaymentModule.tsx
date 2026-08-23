@@ -47,13 +47,13 @@ const EMPTY_CARD: CardCheckoutInput = {
 export function PaymentModule() {
   const navigate = useNavigate();
   const selectedPlan = useCheckoutStore((state) => state.selectedPlan);
-  const profileCompleted = useCheckoutStore((state) => state.profileCompleted);
   const setAccountCompleted = useCheckoutStore(
     (state) => state.setAccountCompleted
   );
   const setProfileCompleted = useCheckoutStore(
     (state) => state.setProfileCompleted
   );
+  const bindCheckoutOwner = useCheckoutStore((state) => state.bindCheckoutOwner);
   const [authReady, setAuthReady] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [hasCpf, setHasCpf] = useState(false);
@@ -81,10 +81,6 @@ export function PaymentModule() {
       navigate({ to: "/planos" });
       return;
     }
-    if (!profileCompleted) {
-      navigate({ to: "/sobre-voce" });
-      return;
-    }
 
     let cancelled = false;
 
@@ -97,6 +93,7 @@ export function PaymentModule() {
         return;
       }
 
+      bindCheckoutOwner(data.session.user.id);
       setAccountCompleted(true);
       setUserId(data.session.user.id);
 
@@ -119,6 +116,14 @@ export function PaymentModule() {
         return;
       }
 
+      if (!resolved.profileComplete) {
+        setProfileCompleted(false);
+        navigate({ to: "/sobre-voce" });
+        return;
+      }
+
+      setProfileCompleted(true);
+
       const { data: userRow } = await supabase
         .from("users")
         .select("cpf")
@@ -138,9 +143,10 @@ export function PaymentModule() {
     };
   }, [
     selectedPlan,
-    profileCompleted,
     navigate,
     setAccountCompleted,
+    setProfileCompleted,
+    bindCheckoutOwner,
   ]);
 
   if (!selectedPlan || !authReady || cpfCheckLoading) {

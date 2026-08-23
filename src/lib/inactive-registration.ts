@@ -29,6 +29,10 @@ export async function fetchInactiveRegistrationStatus(params: {
   const payload = data as { exists?: boolean; reason?: string | null } | null;
   return {
     exists: Boolean(payload?.exists),
-    reason: payload?.reason ?? null,
+    reason: null,
   };
 }
+
+export const INACTIVE_REGISTRATION_MESSAGE =
+  "Este cadastro não está disponível. Se precisar de ajuda, fale com o suporte.";
+

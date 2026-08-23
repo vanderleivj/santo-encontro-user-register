@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "../../../lib/supabase";
-import { fetchInactiveRegistrationStatus } from "../../../lib/inactive-registration";
+import { fetchInactiveRegistrationStatus, INACTIVE_REGISTRATION_MESSAGE } from "../../../lib/inactive-registration";
 import {
   registerInputClass,
   registerLabelClass,
@@ -63,10 +63,7 @@ export function CpfGateForm({ userId, onSaved }: CpfGateFormProps) {
         cpf: cpfDigits,
       });
       if (inactive.exists) {
-        throw new Error(
-          inactive.reason ||
-            "Este CPF não está elegível para novo cadastro no momento."
-        );
+        throw new Error(INACTIVE_REGISTRATION_MESSAGE);
       }
 
       const { error: updateError } = await supabase

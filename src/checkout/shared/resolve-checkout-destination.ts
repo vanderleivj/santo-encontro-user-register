@@ -11,8 +11,10 @@ export type ExistingProfileRow = {
   gender: string | null;
   age: number | null;
   has_children: boolean | null;
+  address: string | null;
   city: string | null;
   state: string | null;
+  zip_code: string | null;
   married_in_church: boolean | null;
   lives_chastity: boolean | null;
   is_catholic: boolean | null;
@@ -24,14 +26,17 @@ export function isCheckoutProfileComplete(
   if (!profile) return false;
   return Boolean(
     profile.gender &&
+      profile.address &&
       profile.city &&
       profile.state &&
+      profile.zip_code &&
+      String(profile.zip_code).replace(/\D/g, "").length === 8 &&
       typeof profile.age === "number" &&
       profile.age >= 18 &&
       profile.has_children !== null &&
       profile.married_in_church !== null &&
-      profile.lives_chastity !== null &&
-      profile.is_catholic !== null
+      profile.lives_chastity === true &&
+      profile.is_catholic === true
   );
 }
 
@@ -146,7 +151,7 @@ export async function resolveCheckoutDestination(options: {
   const { data: existingProfile } = await supabase
     .from("user_profiles")
     .select(
-      "gender, age, has_children, city, state, married_in_church, lives_chastity, is_catholic"
+      "gender, age, has_children, address, city, state, zip_code, married_in_church, lives_chastity, is_catholic"
     )
     .eq("id", options.userId)
     .maybeSingle();

@@ -76,6 +76,50 @@ export const usePayment = () => {
         const now = new Date();
         const end = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);
 
+        const { data: existingTrial } = await supabase
+          .from("subscriptions")
+          .select("id")
+          .eq("user_id", user.id)
+          .is("stripe_subscription_id", null)
+          .is("asaas_subscription_id", null)
+          .limit(1)
+          .maybeSingle();
+
+        if (existingTrial) {
+          throw new Error(
+            "Você já utilizou o período de teste gratuito nesta conta."
+          );
+        }
+
+        const { data: profileRow } = await supabase
+          .from("user_profiles")
+          .select(
+            "gender, age, has_children, address, city, state, zip_code, married_in_church, lives_chastity, is_catholic"
+          )
+          .eq("id", user.id)
+          .maybeSingle();
+
+        const profileComplete = Boolean(
+          profileRow?.gender &&
+            profileRow?.address &&
+            profileRow?.city &&
+            profileRow?.state &&
+            profileRow?.zip_code &&
+            String(profileRow.zip_code).replace(/\D/g, "").length === 8 &&
+            typeof profileRow.age === "number" &&
+            profileRow.age >= 18 &&
+            profileRow.has_children !== null &&
+            profileRow.married_in_church !== null &&
+            profileRow.lives_chastity === true &&
+            profileRow.is_catholic === true
+        );
+
+        if (!profileComplete) {
+          throw new Error(
+            "Complete seu perfil (incluindo elegibilidade) antes de ativar o teste."
+          );
+        }
+
         const subscriptionData = {
           user_id: user.id,
           stripe_customer_id: `trial-customer-${user.id}`,

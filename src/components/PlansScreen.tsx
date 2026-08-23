@@ -487,47 +487,6 @@ export default function PlansScreen() {
                 Gratuito
               </span>
             </div>
-          ) : plan.originalPrice && plan.originalPrice > plan.price ? (
-            <div className="mb-2">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <span
-                  className="text-lg line-through"
-                  style={{ color: "var(--price-original)" }}
-                >
-                  R$ {plan.originalPrice.toFixed(2).replace(".", ",")}
-                </span>
-                <span
-                  className="text-sm font-bold px-3 py-1 rounded-full animate-pulse"
-                  style={{
-                    backgroundColor: "var(--badge-discount-bg)",
-                    color: "var(--badge-discount-text)",
-                    ...(isCampaign && {
-                      boxShadow: "0 10px 15px -3px var(--badge-discount-shadow)",
-                    }),
-                  }}
-                >
-                  {Math.round(
-                    ((plan.originalPrice - plan.price) / plan.originalPrice) *
-                      100
-                  )}
-                  % OFF
-                </span>
-              </div>
-              <div className="flex items-end justify-center">
-                <span
-                  className="text-4xl font-bold"
-                  style={{ color: "var(--price-currency)" }}
-                >
-                  R$
-                </span>
-                <span
-                  className="text-6xl font-bold ml-2"
-                  style={{ color: "var(--price-discount)" }}
-                >
-                  {plan.price.toFixed(2).replace(".", ",")}
-                </span>
-              </div>
-            </div>
           ) : (
             <div className="flex items-end justify-center mb-2">
               <span

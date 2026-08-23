@@ -23,12 +23,6 @@ export function PlanCard({
   savingsHint,
   popularLabel = "Mais escolhido",
 }: PlanCardProps) {
-  const original = plan.originalPrice ?? null;
-  const hasDiscount =
-    original !== null && original > plan.price && plan.price > 0;
-  const discountPercent = hasDiscount
-    ? Math.round(((original - plan.price) / original) * 100)
-    : 0;
   const monthlyHint =
     plan.interval === "year" || plan.interval === "yearly"
       ? `${formatCurrency(plan.price / 12)} por mês`
@@ -92,23 +86,9 @@ export function PlanCard({
         </span>
       </div>
 
-      {hasDiscount ? (
-        <div className="flex flex-wrap items-center gap-2 mb-4 text-sm">
-          <span className="text-[var(--checkout-ink-3,#8493A6)] line-through">
-            {formatCurrency(original)}
-          </span>
-          <span className="px-2 py-0.5 rounded-full bg-[var(--checkout-primary-soft,#FFF1E7)] text-[var(--brand-accent-hover,#9A3412)] text-xs font-bold">
-            −{discountPercent}%
-          </span>
-          {monthlyHint ? (
-            <span className="text-[var(--checkout-ink-2,#55647A)]">
-              · {monthlyHint}
-            </span>
-          ) : null}
-        </div>
-      ) : monthlyHint ? (
+      {monthlyHint ? (
         <p className="text-sm text-[var(--checkout-ink-2,#55647A)] mb-4">
-          · {monthlyHint}
+          {monthlyHint}
         </p>
       ) : null}
 

@@ -74,15 +74,31 @@ describe("decideCheckoutDestination", () => {
 });
 
 describe("isCheckoutProfileComplete", () => {
-  it("requires all profile fields", () => {
+  it("requires all profile fields including CEP and address", () => {
     expect(isCheckoutProfileComplete(null)).toBe(false);
     expect(
       isCheckoutProfileComplete({
         gender: "male",
         age: 30,
         has_children: false,
-        city: "SP",
-        state: "SP",
+        address: null,
+        city: "São Paulo",
+        state: "São Paulo",
+        zip_code: "01310-100",
+        married_in_church: true,
+        lives_chastity: true,
+        is_catholic: true,
+      })
+    ).toBe(false);
+    expect(
+      isCheckoutProfileComplete({
+        gender: "male",
+        age: 30,
+        has_children: false,
+        address: "Av. Paulista, 1000",
+        city: "São Paulo",
+        state: "São Paulo",
+        zip_code: "01310-100",
         married_in_church: true,
         lives_chastity: true,
         is_catholic: true,

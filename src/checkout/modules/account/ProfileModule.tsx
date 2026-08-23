@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate } from "@tanstack/react-router";
@@ -30,6 +30,11 @@ import {
 } from "../../../components/register/form-styles";
 import { supabase } from "../../../lib/supabase";
 import { geocodeAddress, formatAddressForGeocoding } from "../../../lib/geocoding";
+import {
+  fetchAddressFromCep,
+  formatCepInput,
+  isCompleteCep,
+} from "../../../lib/viacep";
 import {
   isCheckoutProfileComplete,
   resolveCheckoutDestination,
@@ -132,12 +137,17 @@ export function ProfileModule() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [profilePrefillNote, setProfilePrefillNote] = useState(false);
+  const [isLoadingCep, setIsLoadingCep] = useState(false);
+  const [cepError, setCepError] = useState<string | null>(null);
+  const cepRequestIdRef = useRef(0);
 
   const {
     control,
     handleSubmit,
     watch,
     reset,
+    setValue,
+    getValues,
     formState: { errors },
   } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -145,6 +155,36 @@ export function ProfileModule() {
   });
 
   const jaCasado = watch("jaCasado");
+
+  const applyAddressFromCep = async (cep: string): Promise<string | true> => {
+    if (!isCompleteCep(cep)) return "Informe um CEP válido.";
+
+    const requestId = ++cepRequestIdRef.current;
+    setIsLoadingCep(true);
+    setCepError(null);
+    try {
+      const address = await fetchAddressFromCep(cep);
+      if (requestId !== cepRequestIdRef.current) return true;
+      setValue("zip_code", address.zipCode, { shouldValidate: true });
+      setValue("city", address.city, { shouldValidate: true });
+      setValue("state", address.state, { shouldValidate: true });
+      setValue("address", address.street, { shouldValidate: true });
+      return true;
+    } catch (error) {
+      if (requestId !== cepRequestIdRef.current) return true;
+      setValue("city", "", { shouldValidate: true });
+      setValue("state", "", { shouldValidate: true });
+      setValue("address", "", { shouldValidate: true });
+      const message =
+        error instanceof Error ? error.message : "Não foi possível buscar o CEP.";
+      setCepError(message);
+      return message;
+    } finally {
+      if (requestId === cepRequestIdRef.current) {
+        setIsLoadingCep(false);
+      }
+    }
+  };
 
   useEffect(() => {
     if (!selectedPlan) {
@@ -163,6 +203,8 @@ export function ProfileModule() {
         });
         return;
       }
+
+      useCheckoutStore.getState().bindCheckoutOwner(data.session.user.id);
 
       const resolved = await resolveCheckoutDestination({
         userId: data.session.user.id,
@@ -221,6 +263,25 @@ export function ProfileModule() {
   const onSubmit = async (data: ProfileFormData) => {
     setIsSubmitting(true);
     try {
+      if (isCompleteCep(data.zip_code) && (!data.city || !data.state)) {
+        const filled = await applyAddressFromCep(data.zip_code);
+        if (filled !== true) {
+          throw new Error(
+            typeof filled === "string"
+              ? filled
+              : "Informe um CEP válido para preencher cidade e estado."
+          );
+        }
+        data = {
+          ...data,
+          ...getValues(),
+        };
+      }
+
+      if (!data.city || !data.state) {
+        throw new Error("Informe um CEP válido para preencher cidade e estado.");
+      }
+
       const {
         data: { user },
         error: userError,
@@ -413,15 +474,99 @@ export function ProfileModule() {
             />
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-4">
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label htmlFor="zip_code" className={registerLabelClass}>
+                CEP <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Controller
+                  control={control}
+                  name="zip_code"
+                  render={({ field }) => (
+                    <input
+                      id="zip_code"
+                      value={field.value}
+                      onBlur={(event) => {
+                        field.onBlur();
+                        void applyAddressFromCep(event.target.value);
+                      }}
+                      onChange={(event) => {
+                        const formatted = formatCepInput(event.target.value);
+                        field.onChange(formatted);
+                        setCepError(null);
+                        if (!isCompleteCep(formatted)) {
+                          cepRequestIdRef.current += 1;
+                          setValue("city", "", { shouldValidate: false });
+                          setValue("state", "", { shouldValidate: false });
+                          setValue("address", "", { shouldValidate: false });
+                          return;
+                        }
+                        void applyAddressFromCep(formatted);
+                      }}
+                      placeholder="00000-000"
+                      inputMode="numeric"
+                      autoComplete="postal-code"
+                      disabled={isLoadingCep}
+                      className={`${registerInputClass} ${
+                        errors.zip_code || cepError
+                          ? "ring-2 ring-red-200 focus:ring-red-500/30"
+                          : ""
+                      } ${isLoadingCep ? "bg-slate-100/80" : ""}`}
+                    />
+                  )}
+                />
+                {isLoadingCep ? (
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                    <div className="w-4 h-4 border-2 border-slate-300 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : null}
+              </div>
+              {errors.zip_code ? (
+                <p className="text-red-600 text-sm ml-1">
+                  {errors.zip_code.message}
+                </p>
+              ) : cepError ? (
+                <p className="text-red-600 text-sm ml-1">{cepError}</p>
+              ) : (
+                <p className="text-[12px] text-[var(--checkout-ink-2,#55647A)] ml-1">
+                  Cidade e estado são preenchidos automaticamente pelo CEP
+                </p>
+              )}
+            </div>
+
+            <FormInput
+              control={formControl}
+              name="address"
+              label="Endereço"
+              placeholder="Rua, número"
+              errors={formErrors}
+              required
+              disabled={isLoadingCep}
+              isLoading={isLoadingCep}
+            />
+
+            <FormInput
+              control={formControl}
+              name="complement"
+              label="Complemento"
+              placeholder="Apartamento, bloco, etc."
+              errors={formErrors}
+              disabled={isLoadingCep}
+              isLoading={isLoadingCep}
+            />
+
             <FormInput
               control={formControl}
               name="city"
               label="Cidade"
-              placeholder="Campinas"
+              placeholder="Cidade"
               errors={formErrors}
               required
+              disabled
+              isLoading={isLoadingCep}
             />
+
             <FormSelect
               control={formControl}
               name="state"
@@ -429,6 +574,7 @@ export function ProfileModule() {
               options={statesList}
               errors={formErrors}
               required
+              disabled
               placeholder="Selecione o estado"
             />
           </div>
@@ -528,15 +674,36 @@ export function ProfileModule() {
             ))}
           </ul>
 
-          <div className="rounded-lg bg-[var(--brand-gold,#8A6516)]/10 px-3.5 py-3 flex items-start gap-2">
+          <div
+            role="note"
+            className="flex items-start gap-2.5 rounded-xl px-3.5 py-3.5"
+            style={{
+              backgroundColor: "#FFF4C8",
+              border: "1.5px solid #E0A106",
+              borderLeft: "4px solid #B45309",
+              boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.65)",
+            }}
+          >
             <TriangleAlert
-              className="w-4 h-4 text-[var(--brand-gold,#8A6516)] shrink-0 mt-0.5"
+              className="shrink-0 mt-0.5"
+              style={{ width: 18, height: 18, color: "#B45309" }}
               aria-hidden
             />
-            <p className="text-[13px] leading-normal text-[var(--brand-gold,#8A6516)]">
-              Informações falsas ou desrespeito a outros membros levam à exclusão
-              do projeto, sem direito a reembolso.
-            </p>
+            <div className="min-w-0 space-y-1">
+              <p
+                className="text-[11px] font-bold uppercase tracking-[0.08em]"
+                style={{ color: "#B45309" }}
+              >
+                Atenção
+              </p>
+              <p
+                className="text-[13.5px] leading-snug font-semibold"
+                style={{ color: "#7C2D12" }}
+              >
+                Informações falsas ou desrespeito a outros membros levam à exclusão
+                do projeto, sem direito a reembolso.
+              </p>
+            </div>
           </div>
 
           <div className="h-px w-full bg-[var(--checkout-line,#E6DFD4)]" />
