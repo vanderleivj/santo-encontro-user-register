@@ -1,9 +1,19 @@
+import { Controller } from "react-hook-form";
 import type { Control, FieldErrors, FieldValues } from "react-hook-form";
 import { registerInputClass, registerLabelClass } from "./register/form-styles";
 
 interface FormattedCPFInputProps {
   control: Control<FieldValues>;
   errors: FieldErrors<FieldValues>;
+}
+
+function formatCpf(value: string): string {
+  return value
+    .replace(/\D/g, "")
+    .replace(/^(\d{3})(\d)/g, "$1.$2")
+    .replace(/^(\d{3})\.(\d{3})(\d)/g, "$1.$2.$3")
+    .replace(/^(\d{3})\.(\d{3})\.(\d{3})(\d)/g, "$1.$2.$3-$4")
+    .substring(0, 14);
 }
 
 export const FormattedCPFInput = ({
@@ -17,22 +27,26 @@ export const FormattedCPFInput = ({
       <label htmlFor="cpf" className={registerLabelClass}>
         CPF <span className="text-red-500">*</span>
       </label>
-      <input
-        id="cpf"
-        {...control.register("cpf")}
-        placeholder="000.000.000-00"
-        maxLength={14}
-        onChange={(e) => {
-          const text = e.target.value;
-          const formatted = text
-            .replace(/\D/g, "")
-            .replace(/^(\d{3})(\d)/g, "$1.$2")
-            .replace(/^(\d{3})\.(\d{3})(\d)/g, "$1.$2.$3")
-            .replace(/^(\d{3})\.(\d{3})\.(\d{3})(\d)/g, "$1.$2.$3-$4")
-            .substring(0, 14);
-          e.target.value = formatted;
-        }}
-        className={`${registerInputClass} ${errors.cpf ? inputError : ""}`}
+      <Controller
+        name="cpf"
+        control={control}
+        render={({ field }) => (
+          <input
+            id="cpf"
+            name={field.name}
+            ref={field.ref}
+            value={field.value ?? ""}
+            onBlur={field.onBlur}
+            placeholder="000.000.000-00"
+            maxLength={14}
+            inputMode="numeric"
+            autoComplete="off"
+            onChange={(event) => {
+              field.onChange(formatCpf(event.target.value));
+            }}
+            className={`${registerInputClass} ${errors.cpf ? inputError : ""}`}
+          />
+        )}
       />
       {errors.cpf && (
         <p className="text-red-600 text-sm mt-1 ml-1">
