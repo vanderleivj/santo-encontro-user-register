@@ -8,7 +8,7 @@ export interface PixPaymentResponse {
 
 const API_BASE_URL =
   import.meta.env.VITE_ADMIN_API_URL ||
-  "https://admin-santo-encontro.vercel.app";
+  "https://admin.santoencontro.com";
 
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../supabase";
 
