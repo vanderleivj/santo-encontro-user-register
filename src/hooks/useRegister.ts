@@ -7,7 +7,12 @@ import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "../lib/supabase";
 import { geocodeAddress, formatAddressForGeocoding } from "../lib/geocoding";
 import { getTrialDays } from "../lib/trial-days";
-import { fetchInactiveRegistrationStatus, INACTIVE_REGISTRATION_MESSAGE } from "../lib/inactive-registration";
+import {
+  fetchInactiveRegistrationStatus,
+  INACTIVE_REGISTRATION_MESSAGE,
+  persistInactiveRegistration,
+} from "../lib/inactive-registration";
+import { getRegistrationPolicyBlockReason } from "../lib/registration-eligibility";
 
 function isValidCPF(cpf: string): boolean {
   cpf = cpf.replace(/\D/g, "");
@@ -341,19 +346,14 @@ export function useRegister() {
         throw new Error("Erro ao criar perfil: " + profileError.message);
       }
 
-      const { error } = await supabase.from("inactive_users").insert({
+      await persistInactiveRegistration({
         email: data.email,
         cpf: data.cpf,
-        first_name: data.firstName,
-        last_name: data.lastName,
+        firstName: data.firstName,
+        lastName: data.lastName,
         phone: data.phone,
-        reason: reason,
+        reason,
       });
-
-      if (error) {
-        console.error("❌ Erro ao registrar usuário inativo:", error);
-        throw new Error("Erro ao registrar usuário inativo");
-      }
 
       setInactiveReason(reason);
       setShowInactiveScreen(true);
@@ -367,28 +367,16 @@ export function useRegister() {
     setIsSubmitting(true);
 
     try {
-      if (
-        data.jaCasado === "Sim" &&
-        data.isViuvo !== "Sim" &&
-        data.nulidadeMatrimonial === "Não"
-      ) {
-        await registerInactiveUser(data, "Nulidade matrimonial não possui");
-        setIsSubmitting(false);
-        return;
-      }
+      const policyBlockReason = getRegistrationPolicyBlockReason({
+        isCatholic: data.is_catholic,
+        livesChastity: data.viveCastidade,
+        wasMarried: data.jaCasado,
+        isWidowed: data.isViuvo,
+        hasMaritalNullity: data.nulidadeMatrimonial,
+      });
 
-      if (data.is_catholic === "Não" || data.viveCastidade === "Não") {
-        let reason = "";
-        if (data.is_catholic === "Não" && data.viveCastidade === "Não") {
-          reason =
-            "Não é católico apostólico romano e não busca viver castidade";
-        } else if (data.is_catholic === "Não") {
-          reason = "Não é católico apostólico romano";
-        } else if (data.viveCastidade === "Não") {
-          reason = "Não busca viver a castidade";
-        }
-
-        await registerInactiveUser(data, reason);
+      if (policyBlockReason) {
+        await registerInactiveUser(data, policyBlockReason);
         setIsSubmitting(false);
         return;
       }

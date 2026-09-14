@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import logo from "../../assets/logo.png";
-import { SupportContact } from "../register/SupportContact";
 
 type Feedback = {
   readonly type: "success" | "error" | "info";
@@ -62,6 +61,40 @@ function hasRecoveryLinkParams() {
   return recoveryKeys.some(
     (key) => queryParams.has(key) || hashParams.has(key)
   );
+}
+
+function getPasswordUpdateFeedback(error: unknown): Feedback {
+  const message = getErrorMessage(error).toLowerCase();
+  const code = getErrorCode(error);
+
+  if (
+    code === "same_password" ||
+    message.includes("different from the old password") ||
+    message.includes("same_password")
+  ) {
+    return {
+      type: "error",
+      title: "Senha igual à atual",
+      description:
+        "A nova senha precisa ser diferente da senha que você já usa. Escolha outra e tente de novo.",
+    };
+  }
+
+  if (code === "session_not_found" || message.includes("session_not_found")) {
+    return {
+      type: "error",
+      title: "Link expirado",
+      description:
+        "Sua sessão expirou. Solicite um novo link de recuperação.",
+    };
+  }
+
+  return {
+    type: "error",
+    title: "Não foi possível atualizar",
+    description:
+      "Tente novamente em alguns instantes. Se o erro continuar, solicite um novo link.",
+  };
 }
 
 function getFriendlyRecoveryError(description?: string | null, code?: string | null) {
@@ -339,10 +372,6 @@ export function ForgotPasswordScreen() {
       subtitle="Informe o email da sua conta. Enviaremos um link seguro para você definir uma nova senha."
       icon={<Mail className="w-3.5 h-3.5" aria-hidden />}
     >
-      <div className="mb-6">
-        <SupportContact />
-      </div>
-
       <form onSubmit={handleSubmit} className="space-y-5">
         <label className="block space-y-2" htmlFor="email">
           <span className="text-xs font-medium text-slate-500 ml-1 block">
@@ -577,14 +606,7 @@ export function ResetPasswordScreen() {
         description: "Agora você já pode fazer login com a nova senha.",
       });
     } catch (error: unknown) {
-      const message = getErrorMessage(error);
-      setFeedback({
-        type: "error",
-        title: "Não foi possível atualizar",
-        description: message.includes("session_not_found")
-          ? "Sua sessão expirou. Solicite um novo link de recuperação."
-          : "Tente novamente em alguns instantes. Se o erro continuar, solicite um novo link.",
-      });
+      setFeedback(getPasswordUpdateFeedback(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -623,7 +645,6 @@ export function ResetPasswordScreen() {
           >
             Enviar novo link
           </button>
-          <SupportContact />
         </div>
       </PasswordResetShell>
     );

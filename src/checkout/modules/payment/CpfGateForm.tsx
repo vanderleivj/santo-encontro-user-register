@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { supabase } from "../../../lib/supabase";
-import { fetchInactiveRegistrationStatus, INACTIVE_REGISTRATION_MESSAGE } from "../../../lib/inactive-registration";
+import { formatCpfInput, isValidCpf, onlyCpfDigits } from "../../../lib/cpf";
+import { InactiveCpfError, saveAuthenticatedUserCpf } from "../../../lib/user-cpf";
 import {
   registerInputClass,
   registerLabelClass,
@@ -12,37 +12,6 @@ interface CpfGateFormProps {
   readonly onSaved: (cpfDigits: string) => void;
 }
 
-function isValidCPF(cpf: string): boolean {
-  const digits = cpf.replace(/\D/g, "");
-  if (digits.length !== 11) return false;
-  if (/^(\d)\1{10}$/.test(digits)) return false;
-
-  let sum = 0;
-  for (let index = 0; index < 9; index++) {
-    sum += Number.parseInt(digits.charAt(index), 10) * (10 - index);
-  }
-  let remainder = sum % 11;
-  const digit1 = remainder < 2 ? 0 : 11 - remainder;
-  if (Number.parseInt(digits.charAt(9), 10) !== digit1) return false;
-
-  sum = 0;
-  for (let index = 0; index < 10; index++) {
-    sum += Number.parseInt(digits.charAt(index), 10) * (11 - index);
-  }
-  remainder = sum % 11;
-  const digit2 = remainder < 2 ? 0 : 11 - remainder;
-  return Number.parseInt(digits.charAt(10), 10) === digit2;
-}
-
-function formatCpf(value: string): string {
-  return value
-    .replace(/\D/g, "")
-    .replace(/^(\d{3})(\d)/g, "$1.$2")
-    .replace(/^(\d{3})\.(\d{3})(\d)/g, "$1.$2.$3")
-    .replace(/^(\d{3})\.(\d{3})\.(\d{3})(\d)/g, "$1.$2.$3-$4")
-    .substring(0, 14);
-}
-
 export function CpfGateForm({ userId, onSaved }: CpfGateFormProps) {
   const [cpf, setCpf] = useState("");
   const [loading, setLoading] = useState(false);
@@ -50,8 +19,8 @@ export function CpfGateForm({ userId, onSaved }: CpfGateFormProps) {
 
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const cpfDigits = cpf.replace(/\D/g, "");
-    if (!isValidCPF(cpfDigits)) {
+    const cpfDigits = onlyCpfDigits(cpf);
+    if (!isValidCpf(cpfDigits)) {
       setError("Informe um CPF válido.");
       return;
     }
@@ -59,34 +28,19 @@ export function CpfGateForm({ userId, onSaved }: CpfGateFormProps) {
     setLoading(true);
     setError(null);
     try {
-      const inactive = await fetchInactiveRegistrationStatus({
+      await saveAuthenticatedUserCpf({
+        userId,
         cpf: cpfDigits,
       });
-      if (inactive.exists) {
-        throw new Error(INACTIVE_REGISTRATION_MESSAGE);
-      }
-
-      const { error: updateError } = await supabase
-        .from("users")
-        .update({ cpf: cpfDigits })
-        .eq("id", userId);
-
-      if (updateError) {
-        throw new Error(
-          updateError.message.includes("duplicate") ||
-            updateError.code === "23505"
-            ? "Este CPF já está em uso em outra conta."
-            : "Não foi possível salvar o CPF. Tente novamente."
-        );
-      }
-
       toast.success("CPF salvo. Você já pode pagar.");
       onSaved(cpfDigits);
     } catch (saveError) {
       const message =
-        saveError instanceof Error
+        saveError instanceof InactiveCpfError
           ? saveError.message
-          : "Erro ao salvar o CPF";
+          : saveError instanceof Error
+            ? saveError.message
+            : "Erro ao salvar o CPF";
       setError(message);
       toast.error(message);
     } finally {
@@ -108,7 +62,7 @@ export function CpfGateForm({ userId, onSaved }: CpfGateFormProps) {
           id="gate-cpf"
           value={cpf}
           onChange={(event) => {
-            setCpf(formatCpf(event.target.value));
+            setCpf(formatCpfInput(event.target.value));
             setError(null);
           }}
           placeholder="000.000.000-00"

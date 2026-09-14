@@ -1,19 +1,11 @@
 import { Controller } from "react-hook-form";
 import type { Control, FieldErrors, FieldValues } from "react-hook-form";
+import { formatCpfInput } from "../lib/cpf";
 import { registerInputClass, registerLabelClass } from "./register/form-styles";
 
 interface FormattedCPFInputProps {
   control: Control<FieldValues>;
   errors: FieldErrors<FieldValues>;
-}
-
-function formatCpf(value: string): string {
-  return value
-    .replace(/\D/g, "")
-    .replace(/^(\d{3})(\d)/g, "$1.$2")
-    .replace(/^(\d{3})\.(\d{3})(\d)/g, "$1.$2.$3")
-    .replace(/^(\d{3})\.(\d{3})\.(\d{3})(\d)/g, "$1.$2.$3-$4")
-    .substring(0, 14);
 }
 
 export const FormattedCPFInput = ({
@@ -42,7 +34,7 @@ export const FormattedCPFInput = ({
             inputMode="numeric"
             autoComplete="off"
             onChange={(event) => {
-              field.onChange(formatCpf(event.target.value));
+              field.onChange(formatCpfInput(event.target.value));
             }}
             className={`${registerInputClass} ${errors.cpf ? inputError : ""}`}
           />

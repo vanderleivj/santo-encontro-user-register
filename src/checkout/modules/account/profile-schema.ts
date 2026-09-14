@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isValidCpf } from "../../../lib/cpf";
 
 function ageFromBirthDate(birthDate: string): number | null {
   const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(birthDate.trim());
@@ -32,6 +33,10 @@ export const profileSchema = z
         const age = ageFromBirthDate(val);
         return age !== null && age >= 18 && age <= 120;
       }, "É necessário ter 18 anos ou mais"),
+    cpf: z
+      .string()
+      .min(1, "CPF é obrigatório")
+      .refine((value) => isValidCpf(value), "CPF inválido"),
     gender: z.string().min(1, "Gênero é obrigatório"),
     temFilhos: z.string().min(1, "Esta informação é obrigatória"),
     city: z.string().min(1, "Informe um CEP válido para preencher a cidade"),
@@ -54,17 +59,27 @@ export const profileSchema = z
       message: "Você deve concordar com a declaração para continuar",
     }),
   })
-  .refine(
-    (data) => {
-      if (data.jaCasado !== "Sim") return true;
-      if (data.isViuvo === "Sim") return true;
-      return Boolean(data.nulidadeMatrimonial);
-    },
-    {
-      message: "Esta informação é obrigatória para quem já foi casado",
-      path: ["nulidadeMatrimonial"],
+  .superRefine((data, context) => {
+    if (data.jaCasado !== "Sim") return;
+
+    if (data.isViuvo !== "Sim" && data.isViuvo !== "Não") {
+      context.addIssue({
+        code: "custom",
+        path: ["isViuvo"],
+        message: "Esta informação é obrigatória para quem já foi casado",
+      });
     }
-  );
+
+    if (data.isViuvo === "Sim") return;
+
+    if (data.nulidadeMatrimonial !== "Sim" && data.nulidadeMatrimonial !== "Não") {
+      context.addIssue({
+        code: "custom",
+        path: ["nulidadeMatrimonial"],
+        message: "Informe se já tem nulidade matrimonial",
+      });
+    }
+  });
 
 export type ProfileFormData = z.infer<typeof profileSchema>;
 

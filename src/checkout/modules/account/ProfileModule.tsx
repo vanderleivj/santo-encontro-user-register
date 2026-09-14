@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import type { Control, FieldErrors, FieldValues } from "react-hook-form";
 import { CheckoutShell } from "../../CheckoutShell";
-import { useCheckoutStore } from "../../checkout-store";
+import { useCheckoutStore, useCheckoutStoreHydrated } from "../../checkout-store";
 import {
   formatBirthDateInput,
   getAgeFromBirthDate,
@@ -23,6 +23,13 @@ import {
 import { ChoicePills } from "./ChoicePills";
 import { FormSelect } from "./FormSelect";
 import { FormInput } from "../../../components/register/FormInput";
+import { FormattedCPFInput } from "../../../components/FormattedCPFInput";
+import { formatCpfInput } from "../../../lib/cpf";
+import { normalizeInactiveLookupCpf } from "../../../lib/inactive-registration-normalize";
+import {
+  InactiveCpfError,
+  saveAuthenticatedUserCpf,
+} from "../../../lib/user-cpf";
 import { statesList } from "../../../utils/states-list";
 import {
   registerInputClass,
@@ -35,6 +42,16 @@ import {
   formatCepInput,
   isCompleteCep,
 } from "../../../lib/viacep";
+import {
+  fetchInactiveRegistrationStatus,
+  INACTIVE_REGISTRATION_PERSIST_ERROR,
+  persistInactiveRegistration,
+} from "../../../lib/inactive-registration";
+import {
+  getRegistrationPolicyBlockReason,
+  getRegistrationPolicyBlockReasonFromProfile,
+} from "../../../lib/registration-eligibility";
+import { IneligibleScreen } from "./IneligibleScreen";
 import {
   isCheckoutProfileComplete,
   resolveCheckoutDestination,
@@ -59,6 +76,7 @@ const CONSENT_ITEMS = [
 
 const EMPTY_PROFILE: ProfileFormData = {
   birthDate: "",
+  cpf: "",
   gender: "",
   temFilhos: "",
   address: "",
@@ -121,7 +139,10 @@ function mapExistingProfileToForm(
     state: profile.state ?? "",
     zip_code: profile.zip_code ?? "",
     jaCasado: boolToSimNao(profile.married_in_church),
-    nulidadeMatrimonial: profile.marital_status ?? "",
+    nulidadeMatrimonial:
+      profile.marital_status === "Sim" || profile.marital_status === "Não"
+        ? profile.marital_status
+        : "",
     isViuvo: boolToSimNao(profile.is_widowed),
     viveCastidade: boolToSimNao(profile.lives_chastity),
     is_catholic: boolToSimNao(profile.is_catholic),
@@ -131,11 +152,13 @@ function mapExistingProfileToForm(
 export function ProfileModule() {
   const navigate = useNavigate();
   const selectedPlan = useCheckoutStore((state) => state.selectedPlan);
+  const checkoutHydrated = useCheckoutStoreHydrated();
   const setProfileCompleted = useCheckoutStore(
     (state) => state.setProfileCompleted
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authReady, setAuthReady] = useState(false);
+  const [ineligibleReason, setIneligibleReason] = useState<string | null>(null);
   const [profilePrefillNote, setProfilePrefillNote] = useState(false);
   const [isLoadingCep, setIsLoadingCep] = useState(false);
   const [cepError, setCepError] = useState<string | null>(null);
@@ -155,6 +178,7 @@ export function ProfileModule() {
   });
 
   const jaCasado = watch("jaCasado");
+  const isViuvo = watch("isViuvo");
 
   const applyAddressFromCep = async (cep: string): Promise<string | true> => {
     if (!isCompleteCep(cep)) return "Informe um CEP válido.";
@@ -187,6 +211,8 @@ export function ProfileModule() {
   };
 
   useEffect(() => {
+    if (!checkoutHydrated) return;
+
     if (!selectedPlan) {
       navigate({ to: "/planos" });
       return;
@@ -226,28 +252,91 @@ export function ProfileModule() {
         return;
       }
 
-      const { data: existingProfile } = await supabase
-        .from("user_profiles")
-        .select(
-          "gender, age, has_children, address, complement, city, state, zip_code, married_in_church, marital_status, is_widowed, lives_chastity, is_catholic"
-        )
-        .eq("id", data.session.user.id)
-        .maybeSingle();
+      const inactive = await fetchInactiveRegistrationStatus({
+        email: data.session.user.email,
+      });
+      if (cancelled) return;
+      if (inactive.exists) {
+        await supabase.auth.signOut();
+        setIneligibleReason(inactive.reason ?? "Cadastro não aprovado");
+        setAuthReady(true);
+        return;
+      }
+
+      const [{ data: existingProfile }, { data: userRow }] = await Promise.all([
+        supabase
+          .from("user_profiles")
+          .select(
+            "gender, age, has_children, address, complement, city, state, zip_code, married_in_church, marital_status, is_widowed, lives_chastity, is_catholic"
+          )
+          .eq("id", data.session.user.id)
+          .maybeSingle(),
+        supabase
+          .from("users")
+          .select("cpf")
+          .eq("id", data.session.user.id)
+          .maybeSingle(),
+      ]);
 
       if (cancelled) return;
 
-      if (isExistingProfileComplete(existingProfile)) {
+      const existingCpf = formatCpfInput(userRow?.cpf ?? "");
+      const hasSavedCpf = Boolean(normalizeInactiveLookupCpf(userRow?.cpf));
+
+      const profileBlockReason =
+        getRegistrationPolicyBlockReasonFromProfile(existingProfile);
+      if (profileBlockReason) {
+        try {
+          await persistInactiveRegistration({
+            email: data.session.user.email ?? "",
+            cpf: userRow?.cpf,
+            firstName:
+              (data.session.user.user_metadata?.firstName as string | undefined) ??
+              null,
+            lastName:
+              (data.session.user.user_metadata?.lastName as string | undefined) ??
+              null,
+            phone:
+              (data.session.user.user_metadata?.phone as string | undefined) ??
+              null,
+            reason: profileBlockReason,
+          });
+        } catch (persistError) {
+          if (cancelled) return;
+          toast.error(
+            persistError instanceof Error
+              ? persistError.message
+              : INACTIVE_REGISTRATION_PERSIST_ERROR
+          );
+          const email = data.session.user.email;
+          await supabase.auth.signOut();
+          navigate({
+            to: "/entrar",
+            search: { next: "/sobre-voce", email },
+          });
+          return;
+        }
+        await supabase.auth.signOut();
+        setIneligibleReason(profileBlockReason);
+        setAuthReady(true);
+        return;
+      }
+
+      if (isExistingProfileComplete(existingProfile) && hasSavedCpf) {
         setProfileCompleted(true);
         toast.success("Perfil já completo. Continue para o pagamento.");
         navigate({ to: "/pagamento" });
         return;
       }
 
-      if (existingProfile) {
+      if (existingProfile || hasSavedCpf) {
         setProfilePrefillNote(true);
         reset({
           ...EMPTY_PROFILE,
-          ...mapExistingProfileToForm(existingProfile),
+          ...(existingProfile
+            ? mapExistingProfileToForm(existingProfile)
+            : {}),
+          cpf: existingCpf,
         });
       }
 
@@ -258,7 +347,7 @@ export function ProfileModule() {
     return () => {
       cancelled = true;
     };
-  }, [selectedPlan, navigate, reset, setProfileCompleted]);
+  }, [checkoutHydrated, selectedPlan, navigate, reset, setProfileCompleted]);
 
   const onSubmit = async (data: ProfileFormData) => {
     setIsSubmitting(true);
@@ -291,35 +380,41 @@ export function ProfileModule() {
         throw new Error("Faça login novamente para continuar.");
       }
 
-      if (data.is_catholic === "Não" || data.viveCastidade === "Não") {
-        const reason =
-          data.is_catholic === "Não" && data.viveCastidade === "Não"
-            ? "Não é católico apostólico romano e não busca viver castidade"
-            : data.is_catholic === "Não"
-              ? "Não é católico apostólico romano"
-              : "Não busca viver a castidade";
-
-        const { error: inactiveError } = await supabase
-          .from("inactive_users")
-          .insert({
-            email: user.email ?? "",
-            cpf: (user.user_metadata?.cpf as string | undefined) ?? null,
-            first_name:
-              (user.user_metadata?.firstName as string | undefined) ?? null,
-            last_name:
-              (user.user_metadata?.lastName as string | undefined) ?? null,
-            reason,
-            source: "checkout_profile",
-          });
-
-        if (inactiveError) {
-          console.error("Erro ao registrar usuário inelegível:", inactiveError);
+      try {
+        await saveAuthenticatedUserCpf({
+          userId: user.id,
+          cpf: data.cpf,
+        });
+      } catch (cpfError) {
+        if (cpfError instanceof InactiveCpfError) {
+          await supabase.auth.signOut();
+          setIneligibleReason(cpfError.reason ?? "Cadastro não aprovado");
+          return;
         }
+        throw cpfError;
+      }
 
+      const policyBlockReason = getRegistrationPolicyBlockReason({
+        isCatholic: data.is_catholic,
+        livesChastity: data.viveCastidade,
+        wasMarried: data.jaCasado,
+        isWidowed: data.isViuvo,
+        hasMaritalNullity: data.nulidadeMatrimonial,
+      });
+
+      if (policyBlockReason) {
+        await persistInactiveRegistration({
+          email: user.email ?? "",
+          cpf: data.cpf,
+          firstName:
+            (user.user_metadata?.firstName as string | undefined) ?? null,
+          lastName: (user.user_metadata?.lastName as string | undefined) ?? null,
+          phone: (user.user_metadata?.phone as string | undefined) ?? null,
+          reason: policyBlockReason,
+        });
         await supabase.auth.signOut();
-        throw new Error(
-          "Seu perfil não está elegível para a comunidade neste momento. Entre em contato com o suporte se tiver dúvidas."
-        );
+        setIneligibleReason(policyBlockReason);
+        return;
       }
 
       const age = getAgeFromBirthDate(data.birthDate);
@@ -390,6 +485,15 @@ export function ProfileModule() {
       setIsSubmitting(false);
     }
   };
+
+  if (ineligibleReason) {
+    return (
+      <IneligibleScreen
+        reason={ineligibleReason}
+        onBack={() => navigate({ to: "/planos" })}
+      />
+    );
+  }
 
   if (!authReady) {
     return (
@@ -464,15 +568,17 @@ export function ProfileModule() {
               )}
             </div>
 
-            <ChoicePills
-              control={formControl}
-              name="gender"
-              label="Gênero"
-              options={GENDER_OPTIONS}
-              errors={formErrors}
-              required
-            />
+            <FormattedCPFInput control={formControl} errors={formErrors} />
           </div>
+
+          <ChoicePills
+            control={formControl}
+            name="gender"
+            label="Gênero"
+            options={GENDER_OPTIONS}
+            errors={formErrors}
+            required
+          />
 
           <div className="space-y-4">
             <div className="space-y-1.5">
@@ -631,14 +737,24 @@ export function ProfileModule() {
                 label="É viúvo(a)?"
                 options={YES_NO}
                 errors={formErrors}
+                required
               />
-              <FormInput
-                control={formControl}
-                name="nulidadeMatrimonial"
-                label="Situação matrimonial / nulidade"
-                placeholder="Ex.: processo de nulidade em andamento"
-                errors={formErrors}
-              />
+              {isViuvo !== "Sim" ? (
+                <div className="space-y-2">
+                  <ChoicePills
+                    control={formControl}
+                    name="nulidadeMatrimonial"
+                    label="Tem nulidade matrimonial?"
+                    options={YES_NO}
+                    errors={formErrors}
+                    required
+                  />
+                  <p className="text-[12px] text-[var(--checkout-ink-2,#55647A)]">
+                    Nulidade é a declaração da Igreja de que o casamento foi
+                    inválido. Viúvos não precisam de nulidade.
+                  </p>
+                </div>
+              ) : null}
             </div>
           ) : null}
         </section>

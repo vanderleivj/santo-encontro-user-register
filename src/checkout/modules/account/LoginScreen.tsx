@@ -12,7 +12,11 @@ import {
   registerInputClass,
   registerLabelClass,
 } from "../../../components/register/form-styles";
-import { fetchInactiveRegistrationStatus, INACTIVE_REGISTRATION_MESSAGE } from "../../../lib/inactive-registration";
+import {
+  fetchInactiveRegistrationStatus,
+  type InactiveRegistrationStatus,
+} from "../../../lib/inactive-registration";
+import { IneligibleScreen } from "./IneligibleScreen";
 
 export function LoginScreen() {
   const navigate = useNavigate();
@@ -26,6 +30,7 @@ export function LoginScreen() {
   const [email, setEmail] = useState(search.email ?? "");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [ineligibleReason, setIneligibleReason] = useState<string | null>(null);
 
   useEffect(() => {
     if (search.email) setEmail(search.email);
@@ -35,12 +40,6 @@ export function LoginScreen() {
     event.preventDefault();
     setLoading(true);
     try {
-      const inactive = await fetchInactiveRegistrationStatus({ email });
-      if (inactive.exists) {
-        toast.error(INACTIVE_REGISTRATION_MESSAGE);
-        return;
-      }
-
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -52,6 +51,29 @@ export function LoginScreen() {
       } = await supabase.auth.getUser();
       if (!user) {
         throw new Error("Sessão inválida após o login.");
+      }
+
+      const { data: userRow } = await supabase
+        .from("users")
+        .select("cpf")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      let inactive: InactiveRegistrationStatus;
+      try {
+        inactive = await fetchInactiveRegistrationStatus({
+          email: user.email,
+          cpf: userRow?.cpf,
+        });
+      } catch (statusError) {
+        await supabase.auth.signOut();
+        throw statusError;
+      }
+
+      if (inactive.exists) {
+        await supabase.auth.signOut();
+        setIneligibleReason(inactive.reason ?? "Cadastro não aprovado");
+        return;
       }
 
       useCheckoutStore.getState().bindCheckoutOwner(user.id);
@@ -93,6 +115,18 @@ export function LoginScreen() {
       setLoading(false);
     }
   };
+
+  if (ineligibleReason) {
+    return (
+      <IneligibleScreen
+        reason={ineligibleReason}
+        onBack={() => {
+          setIneligibleReason(null);
+          setPassword("");
+        }}
+      />
+    );
+  }
 
   return (
     <CheckoutThemeBridge>

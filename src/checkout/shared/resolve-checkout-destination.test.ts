@@ -103,6 +103,36 @@ describe("isCheckoutProfileComplete", () => {
         lives_chastity: true,
         is_catholic: true,
       })
+    ).toBe(false);
+    expect(
+      isCheckoutProfileComplete({
+        gender: "male",
+        age: 30,
+        has_children: false,
+        address: "Av. Paulista, 1000",
+        city: "São Paulo",
+        state: "São Paulo",
+        zip_code: "01310-100",
+        married_in_church: false,
+        lives_chastity: true,
+        is_catholic: true,
+      })
     ).toBe(true);
+    expect(
+      isCheckoutProfileComplete({
+        gender: "female",
+        age: 45,
+        has_children: true,
+        address: "Rua Osvaldo Orico",
+        city: "Santo André",
+        state: "São Paulo",
+        zip_code: "09000-000",
+        married_in_church: true,
+        is_widowed: false,
+        marital_status: "Não",
+        lives_chastity: true,
+        is_catholic: true,
+      })
+    ).toBe(false);
   });
 });

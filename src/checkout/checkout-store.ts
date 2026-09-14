@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { useEffect, useState } from "react";
 import type { PlanConfig } from "../hooks/usePlans";
 
 export type CheckoutStep = "plan" | "account" | "payment";
@@ -13,13 +14,16 @@ export interface AppliedCoupon {
   finalAmount: number;
 }
 
-interface CheckoutState {
+export interface CheckoutSnapshot {
   ownerUserId: string | null;
   selectedPlan: PlanConfig | null;
   accountCompleted: boolean;
   profileCompleted: boolean;
   couponInput: string;
   appliedCoupon: AppliedCoupon | null;
+}
+
+interface CheckoutState extends CheckoutSnapshot {
   setSelectedPlan: (plan: PlanConfig | null) => void;
   setAccountCompleted: (value: boolean) => void;
   setProfileCompleted: (value: boolean) => void;
@@ -29,13 +33,39 @@ interface CheckoutState {
   resetCheckout: () => void;
 }
 
-const EMPTY_CHECKOUT = {
-  selectedPlan: null as PlanConfig | null,
+const EMPTY_CHECKOUT: Omit<CheckoutSnapshot, "ownerUserId"> = {
+  selectedPlan: null,
   accountCompleted: false,
   profileCompleted: false,
   couponInput: "",
-  appliedCoupon: null as AppliedCoupon | null,
+  appliedCoupon: null,
 };
+
+export function nextCheckoutOwnerSnapshot(
+  current: CheckoutSnapshot,
+  userId: string | null
+): CheckoutSnapshot | null {
+  if (!userId) {
+    return { ownerUserId: null, ...EMPTY_CHECKOUT };
+  }
+
+  if (!current.ownerUserId) {
+    return { ...current, ownerUserId: userId };
+  }
+
+  if (current.ownerUserId === userId) {
+    return null;
+  }
+
+  return {
+    ownerUserId: userId,
+    selectedPlan: current.selectedPlan,
+    accountCompleted: false,
+    profileCompleted: false,
+    couponInput: "",
+    appliedCoupon: null,
+  };
+}
 
 export const useCheckoutStore = create<CheckoutState>()(
   persist(
@@ -53,18 +83,8 @@ export const useCheckoutStore = create<CheckoutState>()(
       setCouponInput: (value) => set({ couponInput: value }),
       setAppliedCoupon: (coupon) => set({ appliedCoupon: coupon }),
       bindCheckoutOwner: (userId) => {
-        const currentOwner = get().ownerUserId;
-        if (!userId) {
-          set({ ownerUserId: null, ...EMPTY_CHECKOUT });
-          return;
-        }
-        if (currentOwner && currentOwner !== userId) {
-          set({ ownerUserId: userId, ...EMPTY_CHECKOUT });
-          return;
-        }
-        if (!currentOwner) {
-          set({ ownerUserId: userId });
-        }
+        const next = nextCheckoutOwnerSnapshot(get(), userId);
+        if (next) set(next);
       },
       resetCheckout: () =>
         set({
@@ -85,3 +105,20 @@ export const useCheckoutStore = create<CheckoutState>()(
     }
   )
 );
+
+export function useCheckoutStoreHydrated(): boolean {
+  const [hydrated, setHydrated] = useState(() =>
+    useCheckoutStore.persist.hasHydrated()
+  );
+
+  useEffect(() => {
+    if (useCheckoutStore.persist.hasHydrated()) {
+      setHydrated(true);
+    }
+    return useCheckoutStore.persist.onFinishHydration(() => {
+      setHydrated(true);
+    });
+  }, []);
+
+  return hydrated;
+}

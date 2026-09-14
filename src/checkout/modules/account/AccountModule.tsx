@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { ArrowRight, Lock } from "lucide-react";
 import type { Control, FieldErrors, FieldValues } from "react-hook-form";
 import { CheckoutShell } from "../../CheckoutShell";
-import { useCheckoutStore } from "../../checkout-store";
+import { useCheckoutStore, useCheckoutStoreHydrated } from "../../checkout-store";
 import {
   accountSchema,
   getPasswordStrength,
@@ -16,11 +16,11 @@ import { FormInput } from "../../../components/register/FormInput";
 import { PasswordInput } from "../../../components/register/PasswordInput";
 import { FormattedPhoneInput } from "../../../components/FormattedPhoneInput";
 import { supabase } from "../../../lib/supabase";
-import { fetchInactiveRegistrationStatus, INACTIVE_REGISTRATION_MESSAGE } from "../../../lib/inactive-registration";
 
 export function AccountModule() {
   const navigate = useNavigate();
   const selectedPlan = useCheckoutStore((state) => state.selectedPlan);
+  const checkoutHydrated = useCheckoutStoreHydrated();
   const setAccountCompleted = useCheckoutStore(
     (state) => state.setAccountCompleted
   );
@@ -49,26 +49,19 @@ export function AccountModule() {
   );
 
   useEffect(() => {
+    if (!checkoutHydrated || isSubmitting) return;
     if (!selectedPlan) {
       navigate({ to: "/planos" });
     }
-  }, [selectedPlan, navigate]);
+  }, [checkoutHydrated, selectedPlan, navigate, isSubmitting]);
 
-  if (!selectedPlan) {
+  if (!checkoutHydrated || !selectedPlan) {
     return null;
   }
 
   const onSubmit = async (data: AccountFormData) => {
     setIsSubmitting(true);
     try {
-      const inactive = await fetchInactiveRegistrationStatus({
-        email: data.email,
-      });
-
-      if (inactive.exists) {
-        throw new Error(INACTIVE_REGISTRATION_MESSAGE);
-      }
-
       const { data: existingUserByEmail } = await supabase
         .from("users")
         .select("email")

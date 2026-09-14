@@ -1,4 +1,6 @@
 import { supabase } from "../../lib/supabase";
+import { profileSatisfiesMaritalPolicy } from "../../lib/registration-eligibility";
+import { normalizeInactiveLookupCpf } from "../../lib/inactive-registration-normalize";
 
 export type CheckoutDestination =
   | "/conta/plano"
@@ -16,6 +18,8 @@ export type ExistingProfileRow = {
   state: string | null;
   zip_code: string | null;
   married_in_church: boolean | null;
+  is_widowed?: boolean | null;
+  marital_status?: string | null;
   lives_chastity: boolean | null;
   is_catholic: boolean | null;
 };
@@ -35,6 +39,7 @@ export function isCheckoutProfileComplete(
       profile.age >= 18 &&
       profile.has_children !== null &&
       profile.married_in_church !== null &&
+      profileSatisfiesMaritalPolicy(profile) &&
       profile.lives_chastity === true &&
       profile.is_catholic === true
   );
@@ -148,15 +153,24 @@ export async function resolveCheckoutDestination(options: {
     });
   }
 
-  const { data: existingProfile } = await supabase
-    .from("user_profiles")
-    .select(
-      "gender, age, has_children, address, city, state, zip_code, married_in_church, lives_chastity, is_catholic"
-    )
-    .eq("id", options.userId)
-    .maybeSingle();
+  const [{ data: existingProfile }, { data: userRow }] = await Promise.all([
+    supabase
+      .from("user_profiles")
+      .select(
+        "gender, age, has_children, address, city, state, zip_code, married_in_church, is_widowed, marital_status, lives_chastity, is_catholic"
+      )
+      .eq("id", options.userId)
+      .maybeSingle(),
+    supabase
+      .from("users")
+      .select("cpf")
+      .eq("id", options.userId)
+      .maybeSingle(),
+  ]);
 
-  const profileComplete = isCheckoutProfileComplete(existingProfile);
+  const profileComplete =
+    isCheckoutProfileComplete(existingProfile) &&
+    Boolean(normalizeInactiveLookupCpf(userRow?.cpf));
 
   return decideCheckoutDestination({
     hasActiveAsaasPlan: false,

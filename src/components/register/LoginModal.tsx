@@ -62,7 +62,9 @@ export function LoginModal({
       }
 
       if (data.user) {
-        const inactive = await fetchInactiveRegistrationStatus({ email });
+        const inactive = await fetchInactiveRegistrationStatus({
+          email: data.user.email,
+        });
 
         if (inactive.exists) {
           if (onInactiveUser) {

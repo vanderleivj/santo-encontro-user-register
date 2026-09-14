@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase, SUPABASE_URL } from "../lib/supabase";
 import { getTrialDays } from "../lib/trial-days";
+import { isCheckoutProfileComplete } from "../checkout/shared/resolve-checkout-destination";
 
 export interface PlanConfig {
   id: string;
@@ -94,27 +95,12 @@ export const usePayment = () => {
         const { data: profileRow } = await supabase
           .from("user_profiles")
           .select(
-            "gender, age, has_children, address, city, state, zip_code, married_in_church, lives_chastity, is_catholic"
+            "gender, age, has_children, address, city, state, zip_code, married_in_church, is_widowed, marital_status, lives_chastity, is_catholic"
           )
           .eq("id", user.id)
           .maybeSingle();
 
-        const profileComplete = Boolean(
-          profileRow?.gender &&
-            profileRow?.address &&
-            profileRow?.city &&
-            profileRow?.state &&
-            profileRow?.zip_code &&
-            String(profileRow.zip_code).replace(/\D/g, "").length === 8 &&
-            typeof profileRow.age === "number" &&
-            profileRow.age >= 18 &&
-            profileRow.has_children !== null &&
-            profileRow.married_in_church !== null &&
-            profileRow.lives_chastity === true &&
-            profileRow.is_catholic === true
-        );
-
-        if (!profileComplete) {
+        if (!isCheckoutProfileComplete(profileRow)) {
           throw new Error(
             "Complete seu perfil (incluindo elegibilidade) antes de ativar o teste."
           );

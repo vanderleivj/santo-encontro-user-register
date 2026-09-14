@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { CheckoutShell } from "../../CheckoutShell";
-import { useCheckoutStore } from "../../checkout-store";
+import { useCheckoutStore, useCheckoutStoreHydrated } from "../../checkout-store";
 import { supabase } from "../../../lib/supabase";
 import {
   useAsaasCheckout,
@@ -11,10 +11,11 @@ import {
 import { PixPanel } from "./PixPanel";
 import { CardPanel } from "./CardPanel";
 import { BoletoPanel } from "./BoletoPanel";
-import { CpfGateForm } from "./CpfGateForm";
 import { usePayment } from "../../../hooks/usePayment";
 import { getTrialDays } from "../../../lib/trial-days";
 import { resolveCheckoutDestination } from "../../shared/resolve-checkout-destination";
+import { fetchInactiveRegistrationStatus } from "../../../lib/inactive-registration";
+import { IneligibleScreen } from "../account/IneligibleScreen";
 import { toast } from "sonner";
 
 const METHODS: { id: PaymentMethod; title: string; subtitle: string }[] = [
@@ -47,6 +48,7 @@ const EMPTY_CARD: CardCheckoutInput = {
 export function PaymentModule() {
   const navigate = useNavigate();
   const selectedPlan = useCheckoutStore((state) => state.selectedPlan);
+  const checkoutHydrated = useCheckoutStoreHydrated();
   const setAccountCompleted = useCheckoutStore(
     (state) => state.setAccountCompleted
   );
@@ -55,12 +57,10 @@ export function PaymentModule() {
   );
   const bindCheckoutOwner = useCheckoutStore((state) => state.bindCheckoutOwner);
   const [authReady, setAuthReady] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [hasCpf, setHasCpf] = useState(false);
-  const [cpfCheckLoading, setCpfCheckLoading] = useState(true);
   const [method, setMethod] = useState<PaymentMethod>("pix");
   const [card, setCard] = useState<CardCheckoutInput>(EMPTY_CARD);
   const [trialLoading, setTrialLoading] = useState(false);
+  const [ineligibleReason, setIneligibleReason] = useState<string | null>(null);
 
   const {
     loading,
@@ -77,6 +77,8 @@ export function PaymentModule() {
   const { handlePaymentWithStripe } = usePayment();
 
   useEffect(() => {
+    if (!checkoutHydrated) return;
+
     if (!selectedPlan) {
       navigate({ to: "/planos" });
       return;
@@ -95,7 +97,17 @@ export function PaymentModule() {
 
       bindCheckoutOwner(data.session.user.id);
       setAccountCompleted(true);
-      setUserId(data.session.user.id);
+
+      const inactive = await fetchInactiveRegistrationStatus({
+        email: data.session.user.email,
+      });
+      if (cancelled) return;
+      if (inactive.exists) {
+        await supabase.auth.signOut();
+        setIneligibleReason(inactive.reason ?? "Cadastro não aprovado");
+        setAuthReady(true);
+        return;
+      }
 
       const resolved = await resolveCheckoutDestination({
         userId: data.session.user.id,
@@ -123,18 +135,6 @@ export function PaymentModule() {
       }
 
       setProfileCompleted(true);
-
-      const { data: userRow } = await supabase
-        .from("users")
-        .select("cpf")
-        .eq("id", data.session.user.id)
-        .maybeSingle();
-
-      if (cancelled) return;
-
-      const cpfDigits = (userRow?.cpf ?? "").replace(/\D/g, "");
-      setHasCpf(cpfDigits.length === 11);
-      setCpfCheckLoading(false);
       setAuthReady(true);
     });
 
@@ -142,6 +142,7 @@ export function PaymentModule() {
       cancelled = true;
     };
   }, [
+    checkoutHydrated,
     selectedPlan,
     navigate,
     setAccountCompleted,
@@ -149,30 +150,21 @@ export function PaymentModule() {
     bindCheckoutOwner,
   ]);
 
-  if (!selectedPlan || !authReady || cpfCheckLoading) {
+  if (ineligibleReason) {
+    return (
+      <IneligibleScreen
+        reason={ineligibleReason}
+        onBack={() => navigate({ to: "/planos" })}
+      />
+    );
+  }
+
+  if (!checkoutHydrated || !selectedPlan || !authReady) {
     return (
       <CheckoutShell step="payment" title="Carregando pagamento...">
         <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
           <div className="h-full w-1/2 bg-brand-accent/60 animate-pulse" />
         </div>
-      </CheckoutShell>
-    );
-  }
-
-  if (userId && !hasCpf) {
-    return (
-      <CheckoutShell
-        step="payment"
-        title="Informe seu CPF"
-        subtitle="Precisamos dele para gerar a cobrança com segurança."
-      >
-        <CpfGateForm
-          userId={userId}
-          onSaved={() => {
-            setHasCpf(true);
-            setProfileCompleted(true);
-          }}
-        />
       </CheckoutShell>
     );
   }
