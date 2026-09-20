@@ -23,6 +23,7 @@ export interface RegistrationEligibilityProfile {
   married_in_church?: boolean | null;
   is_widowed?: boolean | null;
   marital_status?: string | null;
+  has_marital_nullity?: boolean | null;
 }
 
 export interface RegistrationBlockCopy {
@@ -36,10 +37,6 @@ function isYes(value: string | null | undefined): boolean {
 
 function isNo(value: string | null | undefined): boolean {
   return value?.trim() === "Não";
-}
-
-function hasCompletedNullity(value: string | null | undefined): boolean {
-  return isYes(value);
 }
 
 export function getRegistrationPolicyBlockReason(
@@ -67,6 +64,18 @@ export function getRegistrationPolicyBlockReason(
   }
 
   return null;
+}
+
+function hasCompletedNullity(profile: RegistrationEligibilityProfile): boolean {
+  if (profile.has_marital_nullity === true) return true;
+  if (profile.has_marital_nullity === false) return false;
+  return isYes(profile.marital_status);
+}
+
+function hasDeniedNullity(profile: RegistrationEligibilityProfile): boolean {
+  if (profile.has_marital_nullity === true) return false;
+  if (profile.has_marital_nullity === false) return true;
+  return isNo(profile.marital_status);
 }
 
 export function getRegistrationPolicyBlockReasonFromProfile(
@@ -99,7 +108,11 @@ export function getRegistrationPolicyBlockReasonFromProfile(
         : profile.is_widowed === false
           ? "Não"
           : null,
-    hasMaritalNullity: profile.marital_status,
+    hasMaritalNullity: hasDeniedNullity(profile)
+      ? "Não"
+      : hasCompletedNullity(profile)
+        ? "Sim"
+        : null,
   });
 }
 
@@ -109,7 +122,27 @@ export function profileSatisfiesMaritalPolicy(
   if (!profile) return false;
   if (profile.married_in_church !== true) return true;
   if (profile.is_widowed === true) return true;
-  return hasCompletedNullity(profile.marital_status);
+  return hasCompletedNullity(profile);
+}
+
+export function resolveHasMaritalNullityFromAnswers(answers: {
+  wasMarried?: string | null;
+  isWidowed?: string | null;
+  hasMaritalNullity?: string | null;
+}): boolean | null {
+  if (!isYes(answers.wasMarried)) return null;
+  if (isYes(answers.isWidowed)) return null;
+  if (isYes(answers.hasMaritalNullity)) return true;
+  if (isNo(answers.hasMaritalNullity)) return false;
+  return null;
+}
+
+export function maritalStatusForRegistrationWrite(
+  existing: string | null | undefined
+): string | null | undefined {
+  const trimmed = existing?.trim() ?? "";
+  if (trimmed === "Sim" || trimmed === "Não") return null;
+  return undefined;
 }
 
 export function getRegistrationBlockCopy(

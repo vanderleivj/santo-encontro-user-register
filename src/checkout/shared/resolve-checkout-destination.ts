@@ -20,6 +20,7 @@ export type ExistingProfileRow = {
   married_in_church: boolean | null;
   is_widowed?: boolean | null;
   marital_status?: string | null;
+  has_marital_nullity?: boolean | null;
   lives_chastity: boolean | null;
   is_catholic: boolean | null;
 };
@@ -157,7 +158,7 @@ export async function resolveCheckoutDestination(options: {
     supabase
       .from("user_profiles")
       .select(
-        "gender, age, has_children, address, city, state, zip_code, married_in_church, is_widowed, marital_status, lives_chastity, is_catholic"
+        "gender, age, has_children, address, city, state, zip_code, married_in_church, is_widowed, marital_status, has_marital_nullity, lives_chastity, is_catholic"
       )
       .eq("id", options.userId)
       .maybeSingle(),

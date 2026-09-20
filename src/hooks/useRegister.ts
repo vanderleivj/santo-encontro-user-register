@@ -12,7 +12,7 @@ import {
   INACTIVE_REGISTRATION_MESSAGE,
   persistInactiveRegistration,
 } from "../lib/inactive-registration";
-import { getRegistrationPolicyBlockReason } from "../lib/registration-eligibility";
+import { getRegistrationPolicyBlockReason, resolveHasMaritalNullityFromAnswers } from "../lib/registration-eligibility";
 
 function isValidCPF(cpf: string): boolean {
   cpf = cpf.replace(/\D/g, "");
@@ -321,9 +321,12 @@ export function useRegister() {
         state: data.state || null,
         zip_code: data.zip_code || null,
         married_in_church: data.jaCasado === "Sim",
-        marital_status:
-          data.jaCasado === "Sim" ? data.nulidadeMatrimonial : null,
         is_widowed: data.isViuvo === "Sim" || false,
+        has_marital_nullity: resolveHasMaritalNullityFromAnswers({
+          wasMarried: data.jaCasado,
+          isWidowed: data.isViuvo,
+          hasMaritalNullity: data.nulidadeMatrimonial,
+        }),
         lives_chastity: data.viveCastidade === "Sim",
         is_catholic: data.is_catholic === "Sim" || false,
         gender: data.gender,
@@ -496,9 +499,12 @@ export function useRegister() {
         state: data.state || null,
         zip_code: data.zip_code || null,
         married_in_church: data.jaCasado === "Sim",
-        marital_status:
-          data.jaCasado === "Sim" ? data.nulidadeMatrimonial : null,
         is_widowed: data.isViuvo === "Sim" || false,
+        has_marital_nullity: resolveHasMaritalNullityFromAnswers({
+          wasMarried: data.jaCasado,
+          isWidowed: data.isViuvo,
+          hasMaritalNullity: data.nulidadeMatrimonial,
+        }),
         lives_chastity: data.viveCastidade === "Sim",
         is_catholic: data.is_catholic === "Sim" || false,
         gender: data.gender,

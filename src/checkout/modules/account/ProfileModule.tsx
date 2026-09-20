@@ -50,6 +50,8 @@ import {
 import {
   getRegistrationPolicyBlockReason,
   getRegistrationPolicyBlockReasonFromProfile,
+  maritalStatusForRegistrationWrite,
+  resolveHasMaritalNullityFromAnswers,
 } from "../../../lib/registration-eligibility";
 import { IneligibleScreen } from "./IneligibleScreen";
 import {
@@ -103,6 +105,7 @@ type ExistingProfileRow = {
   zip_code: string | null;
   married_in_church: boolean | null;
   marital_status: string | null;
+  has_marital_nullity?: boolean | null;
   is_widowed: boolean | null;
   lives_chastity: boolean | null;
   is_catholic: boolean | null;
@@ -140,9 +143,13 @@ function mapExistingProfileToForm(
     zip_code: profile.zip_code ?? "",
     jaCasado: boolToSimNao(profile.married_in_church),
     nulidadeMatrimonial:
-      profile.marital_status === "Sim" || profile.marital_status === "Não"
-        ? profile.marital_status
-        : "",
+      profile.has_marital_nullity === true
+        ? "Sim"
+        : profile.has_marital_nullity === false
+          ? "Não"
+          : profile.marital_status === "Sim" || profile.marital_status === "Não"
+            ? profile.marital_status
+            : "",
     isViuvo: boolToSimNao(profile.is_widowed),
     viveCastidade: boolToSimNao(profile.lives_chastity),
     is_catholic: boolToSimNao(profile.is_catholic),
@@ -267,7 +274,7 @@ export function ProfileModule() {
         supabase
           .from("user_profiles")
           .select(
-            "gender, age, has_children, address, complement, city, state, zip_code, married_in_church, marital_status, is_widowed, lives_chastity, is_catholic"
+            "gender, age, has_children, address, complement, city, state, zip_code, married_in_church, marital_status, is_widowed, lives_chastity, is_catholic, has_marital_nullity"
           )
           .eq("id", data.session.user.id)
           .maybeSingle(),
@@ -434,6 +441,12 @@ export function ProfileModule() {
         // continua sem coordenadas
       }
 
+      const { data: existingProfile } = await supabase
+        .from("user_profiles")
+        .select("id, marital_status")
+        .eq("id", user.id)
+        .maybeSingle();
+
       const profileData: Record<string, unknown> = {
         id: user.id,
         address: data.address || data.city || null,
@@ -442,9 +455,12 @@ export function ProfileModule() {
         state: data.state || null,
         zip_code: data.zip_code || null,
         married_in_church: data.jaCasado === "Sim",
-        marital_status:
-          data.jaCasado === "Sim" ? data.nulidadeMatrimonial : null,
         is_widowed: data.isViuvo === "Sim" || false,
+        has_marital_nullity: resolveHasMaritalNullityFromAnswers({
+          wasMarried: data.jaCasado,
+          isWidowed: data.isViuvo,
+          hasMaritalNullity: data.nulidadeMatrimonial,
+        }),
         lives_chastity: data.viveCastidade === "Sim",
         is_catholic: data.is_catholic === "Sim" || false,
         gender: data.gender,
@@ -452,16 +468,17 @@ export function ProfileModule() {
         has_children: data.temFilhos === "Sim",
       };
 
+      const nextMaritalStatus = maritalStatusForRegistrationWrite(
+        existingProfile?.marital_status
+      );
+      if (nextMaritalStatus !== undefined) {
+        profileData.marital_status = nextMaritalStatus;
+      }
+
       if (geocodingResult?.latitude && geocodingResult?.longitude) {
         profileData.latitude = geocodingResult.latitude;
         profileData.longitude = geocodingResult.longitude;
       }
-
-      const { data: existingProfile } = await supabase
-        .from("user_profiles")
-        .select("id")
-        .eq("id", user.id)
-        .maybeSingle();
 
       const { error: profileError } = existingProfile
         ? await supabase

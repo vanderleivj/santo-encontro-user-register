@@ -95,7 +95,7 @@ export const usePayment = () => {
         const { data: profileRow } = await supabase
           .from("user_profiles")
           .select(
-            "gender, age, has_children, address, city, state, zip_code, married_in_church, is_widowed, marital_status, lives_chastity, is_catholic"
+            "gender, age, has_children, address, city, state, zip_code, married_in_church, is_widowed, marital_status, lives_chastity, is_catholic, has_marital_nullity"
           )
           .eq("id", user.id)
           .maybeSingle();

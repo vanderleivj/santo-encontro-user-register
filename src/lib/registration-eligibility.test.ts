@@ -87,4 +87,15 @@ describe("perfil já gravado", () => {
       })
     ).toBe(true);
   });
+
+  it("libera divorciado quando o admin marcou nulidade", () => {
+    expect(
+      profileSatisfiesMaritalPolicy({
+        married_in_church: true,
+        is_widowed: false,
+        marital_status: "Divorciado(a)",
+        has_marital_nullity: true,
+      })
+    ).toBe(true);
+  });
 });
