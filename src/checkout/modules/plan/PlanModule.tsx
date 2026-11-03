@@ -7,8 +7,12 @@ import { CampaignBanner } from "../../shared/CampaignBanner";
 import { useCheckoutStore } from "../../checkout-store";
 import { PlanCard } from "./PlanCard";
 import { usePlanCatalog, type PlanConfig } from "./usePlanCatalog";
+import { toast } from "sonner";
 import { supabase } from "../../../lib/supabase";
 import { useBlackFriday } from "../../../hooks/useBlackFriday";
+import { restoreSessionFromHash } from "../../shared/restore-session-from-hash";
+import { resolveCheckoutDestination } from "../../shared/resolve-checkout-destination";
+import { detectAppWebView } from "../../shared/app-webview";
 
 function planSortWeight(plan: PlanConfig): number {
   if (plan.interval === "year" || plan.interval === "yearly") return 0;
@@ -42,6 +46,7 @@ export function PlanModule() {
   const [localSelectedId, setLocalSelectedId] = useState<string | null>(
     selectedPlan?.originalId ?? selectedPlan?.id ?? null
   );
+  const [continuing, setContinuing] = useState(false);
 
   const paidPlans = useMemo(() => {
     const sorted = plans.slice().sort((a, b) => {
@@ -62,22 +67,9 @@ export function PlanModule() {
   }, [plans]);
 
   useEffect(() => {
-    const hash = globalThis.location?.hash?.slice(1);
-    if (!hash) return;
-    const params = new URLSearchParams(hash);
-    const accessToken = params.get("access_token");
-    const refreshToken = params.get("refresh_token");
-    if (!accessToken || !refreshToken) return;
-    supabase.auth
-      .setSession({ access_token: accessToken, refresh_token: refreshToken })
-      .then(() => {
-        globalThis.history?.replaceState(
-          null,
-          "",
-          globalThis.location?.pathname + (globalThis.location?.search || "")
-        );
-      })
-      .catch((err) => console.warn("Erro ao restaurar sessão no /planos:", err));
+    restoreSessionFromHash().catch((err) =>
+      console.warn("Erro ao restaurar sessão no /planos:", err)
+    );
   }, []);
 
   useEffect(() => {
@@ -97,10 +89,65 @@ export function PlanModule() {
       (plan) => (plan.originalId ?? plan.id) === localSelectedId
     ) ?? null;
 
-  const handleContinue = () => {
-    if (!current) return;
+  const handleContinue = async () => {
+    if (!current || continuing) return;
+    setContinuing(true);
     setSelectedPlan(current);
-    navigate({ to: "/conta" });
+
+    try {
+      await restoreSessionFromHash();
+      const { data } = await supabase.auth.getSession();
+      const userId = data.session?.user?.id;
+      if (!userId) {
+        navigate({ to: "/conta" });
+        return;
+      }
+
+      const store = useCheckoutStore.getState();
+      store.bindCheckoutOwner(userId);
+      store.setSelectedPlan(current);
+      store.setAccountCompleted(true);
+
+      const resolved = await resolveCheckoutDestination({
+        userId,
+        hasSelectedPlan: true,
+      });
+
+      if (resolved.profileComplete) {
+        store.setProfileCompleted(true);
+      }
+
+      if (resolved.hasActiveAsaasPlan) {
+        toast.message(
+          resolved.message ??
+            "Você já tem uma assinatura ativa. Veja os detalhes do seu plano."
+        );
+        navigate({
+          to: "/conta/plano",
+          search: detectAppWebView()
+            ? { app: "1", embed: undefined }
+            : { app: undefined, embed: undefined },
+        });
+        return;
+      }
+
+      if (
+        resolved.destination === "/pagamento" ||
+        resolved.destination === "/sobre-voce" ||
+        resolved.destination === "/planos"
+      ) {
+        navigate({ to: resolved.destination });
+        return;
+      }
+
+      navigate({ to: "/conta" });
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Não foi possível continuar"
+      );
+    } finally {
+      setContinuing(false);
+    }
   };
 
   return (
@@ -162,8 +209,10 @@ export function PlanModule() {
         <div className="max-w-[400px] mx-auto space-y-3 text-center">
           <button
             type="button"
-            disabled={!current}
-            onClick={handleContinue}
+            disabled={!current || continuing}
+            onClick={() => {
+              void handleContinue();
+            }}
             className="brand-primary-button w-full py-3.5 rounded-xl font-bold text-sm disabled:opacity-50 inline-flex items-center justify-center gap-2"
           >
             Continuar

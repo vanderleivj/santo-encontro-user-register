@@ -9,6 +9,7 @@ interface CardPanelProps {
   readonly awaitingConfirmation?: boolean;
   readonly verifying?: boolean;
   readonly onVerifyPayment?: () => void;
+  readonly submitLabel?: string;
 }
 
 export function CardPanel({
@@ -19,6 +20,7 @@ export function CardPanel({
   awaitingConfirmation = false,
   verifying = false,
   onVerifyPayment,
+  submitLabel = "Pagar com cartão",
 }: CardPanelProps) {
   const patch = (partial: Partial<CardCheckoutInput>) =>
     onChange({ ...value, ...partial });
@@ -101,7 +103,7 @@ export function CardPanel({
         onClick={onSubmit}
         className="brand-primary-button w-full py-3 rounded-2xl font-bold text-sm disabled:opacity-50"
       >
-        {loading ? "Processando..." : "Pagar com cartão"}
+        {loading ? "Processando..." : submitLabel}
       </button>
     </div>
   );

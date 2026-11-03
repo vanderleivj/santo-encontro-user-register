@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
+  createAsaasInstallment,
   createAsaasSubscription,
   getAsaasPaymentStatus,
   type AsaasBillingType,
 } from "../../../lib/api/asaas";
+import { maxCardInstallments } from "./card-installments";
 import { supabase } from "../../../lib/supabase";
 import type { PlanConfig } from "../../../hooks/usePlans";
 import { isAsaasPaymentConfirmed } from "./asaas-payment-status";
@@ -47,7 +49,10 @@ function billingTypeFromMethod(method: PaymentMethod): AsaasBillingType {
   return "CREDIT_CARD";
 }
 
-export function useAsaasCheckout(plan: PlanConfig | null) {
+export function useAsaasCheckout(
+  plan: PlanConfig | null,
+  installmentCount = 1
+) {
   const navigate = useNavigate();
   const appliedCoupon = useCheckoutStore((state) => state.appliedCoupon);
   const [loading, setLoading] = useState(false);
@@ -258,13 +263,26 @@ export function useAsaasCheckout(plan: PlanConfig | null) {
         };
       }
 
-      const response = await createAsaasSubscription(session.access_token, {
-        planType,
-        billingType,
-        cpf: cpfDigits,
-        couponCode: appliedCoupon?.code,
-        ...creditCardPayload,
-      });
+      const useInstallment =
+        billingType === "CREDIT_CARD" &&
+        installmentCount > 1 &&
+        maxCardInstallments(plan.interval) > 1;
+      const response = useInstallment
+        ? await createAsaasInstallment(session.access_token, {
+            planType,
+            billingType,
+            cpf: cpfDigits,
+            couponCode: appliedCoupon?.code,
+            installmentCount,
+            ...creditCardPayload,
+          })
+        : await createAsaasSubscription(session.access_token, {
+            planType,
+            billingType,
+            cpf: cpfDigits,
+            couponCode: appliedCoupon?.code,
+            ...creditCardPayload,
+          });
       chargedAmountRef.current = response.amount;
 
       if (billingType === "CREDIT_CARD") {

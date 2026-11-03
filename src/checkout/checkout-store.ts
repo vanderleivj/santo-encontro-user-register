@@ -23,12 +23,19 @@ export interface CheckoutSnapshot {
   appliedCoupon: AppliedCoupon | null;
 }
 
+export interface CardFeeQuote {
+  count: number;
+  totalValue: number;
+}
+
 interface CheckoutState extends CheckoutSnapshot {
+  cardFeeQuote: CardFeeQuote | null;
   setSelectedPlan: (plan: PlanConfig | null) => void;
   setAccountCompleted: (value: boolean) => void;
   setProfileCompleted: (value: boolean) => void;
   setCouponInput: (value: string) => void;
   setAppliedCoupon: (coupon: AppliedCoupon | null) => void;
+  setCardFeeQuote: (quote: CardFeeQuote | null) => void;
   bindCheckoutOwner: (userId: string | null) => void;
   resetCheckout: () => void;
 }
@@ -71,17 +78,20 @@ export const useCheckoutStore = create<CheckoutState>()(
   persist(
     (set, get) => ({
       ownerUserId: null,
+      cardFeeQuote: null,
       ...EMPTY_CHECKOUT,
       setSelectedPlan: (plan) =>
         set({
           selectedPlan: plan,
           appliedCoupon: null,
           couponInput: "",
+          cardFeeQuote: null,
         }),
       setAccountCompleted: (value) => set({ accountCompleted: value }),
       setProfileCompleted: (value) => set({ profileCompleted: value }),
       setCouponInput: (value) => set({ couponInput: value }),
       setAppliedCoupon: (coupon) => set({ appliedCoupon: coupon }),
+      setCardFeeQuote: (quote) => set({ cardFeeQuote: quote }),
       bindCheckoutOwner: (userId) => {
         const next = nextCheckoutOwnerSnapshot(get(), userId);
         if (next) set(next);
@@ -89,6 +99,7 @@ export const useCheckoutStore = create<CheckoutState>()(
       resetCheckout: () =>
         set({
           ownerUserId: get().ownerUserId,
+          cardFeeQuote: null,
           ...EMPTY_CHECKOUT,
         }),
     }),

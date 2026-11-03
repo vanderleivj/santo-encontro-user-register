@@ -120,10 +120,12 @@ export function decideCheckoutDestination(options: {
 async function hasActiveAsaasSubscription(userId: string): Promise<boolean> {
   const { data } = await supabase
     .from("subscriptions")
-    .select("id, status, end_date, current_period_end, asaas_subscription_id")
+    .select(
+      "id, status, end_date, current_period_end, asaas_subscription_id, billing_mode"
+    )
     .eq("user_id", userId)
     .eq("provider", "asaas")
-    .not("asaas_subscription_id", "is", null)
+    .or("asaas_subscription_id.not.is.null,billing_mode.eq.installment")
     .in("status", ["active", "trialing"])
     .order("updated_at", { ascending: false })
     .limit(5);
