@@ -16,12 +16,14 @@ import {
 } from "../upgrade/plan-type";
 
 interface ManagedSubscription {
-  asaasSubscriptionId: string;
+  asaasSubscriptionId: string | null;
   planType: AsaasPlanType;
   status: string;
   startDate: string | null;
   endDate: string | null;
   cancelAtPeriodEnd: boolean;
+  billingMode: "subscription" | "installment";
+  installmentCount: number | null;
 }
 
 function statusLabel(status: string): string {
@@ -86,11 +88,11 @@ export function PlanManageModule() {
       const { data: subscriptionRow } = await supabase
         .from("subscriptions")
         .select(
-          "plan_type, status, start_date, end_date, provider, asaas_subscription_id, asaas_customer_id, cancel_at_period_end"
+          "plan_type, status, start_date, end_date, current_period_end, provider, asaas_subscription_id, asaas_installment_id, installment_count, billing_mode, asaas_customer_id, cancel_at_period_end"
         )
         .eq("user_id", data.session.user.id)
         .eq("provider", "asaas")
-        .not("asaas_subscription_id", "is", null)
+        .or("asaas_subscription_id.not.is.null,billing_mode.eq.installment")
         .in("status", ["active", "trialing", "past_due", "paused"])
         .order("updated_at", { ascending: false })
         .limit(1)
@@ -99,8 +101,17 @@ export function PlanManageModule() {
       if (cancelled) return;
 
       const planType = String(subscriptionRow?.plan_type ?? "");
+      const billingMode =
+        subscriptionRow?.billing_mode === "installment"
+          ? "installment"
+          : "subscription";
+      const externalId =
+        billingMode === "installment"
+          ? subscriptionRow?.asaas_installment_id
+          : subscriptionRow?.asaas_subscription_id;
       if (
-        !subscriptionRow?.asaas_subscription_id ||
+        !subscriptionRow ||
+        !externalId ||
         !["monthly", "quarterly", "semiannual", "yearly"].includes(planType)
       ) {
         setLoadError("Nenhuma assinatura Asaas ativa encontrada.");
@@ -110,12 +121,19 @@ export function PlanManageModule() {
 
       const cancelAtPeriodEnd = Boolean(subscriptionRow.cancel_at_period_end);
       setSubscription({
-        asaasSubscriptionId: subscriptionRow.asaas_subscription_id,
+        asaasSubscriptionId:
+          subscriptionRow.asaas_subscription_id ??
+          (billingMode === "installment"
+            ? subscriptionRow.asaas_installment_id ?? null
+            : null),
         planType: planType as AsaasPlanType,
         status: String(subscriptionRow.status ?? ""),
         startDate: subscriptionRow.start_date ?? null,
-        endDate: subscriptionRow.end_date ?? null,
+        endDate:
+          subscriptionRow.current_period_end ?? subscriptionRow.end_date ?? null,
         cancelAtPeriodEnd,
+        billingMode,
+        installmentCount: subscriptionRow.installment_count ?? null,
       });
       setCancelScheduled(cancelAtPeriodEnd);
       if (cancelAtPeriodEnd) {
@@ -140,7 +158,7 @@ export function PlanManageModule() {
   }, [subscription]);
 
   const handleCancel = async () => {
-    if (!subscription) return;
+    if (!subscription?.asaasSubscriptionId) return;
 
     setCanceling(true);
     try {
@@ -229,8 +247,18 @@ export function PlanManageModule() {
           </div>
           <div className="space-y-1 text-sm text-[var(--checkout-ink-2,#55647A)]">
             <p>Início: {formatDate(subscription.startDate)}</p>
-            <p>Próxima cobrança / vigência: {formatDate(subscription.endDate)}</p>
-            <p>Pagamento: Asaas</p>
+            <p>
+              {subscription.billingMode === "installment"
+                ? "Acesso até"
+                : "Próxima cobrança / vigência"}
+              : {formatDate(subscription.endDate)}
+            </p>
+            <p>
+              Pagamento:{" "}
+              {subscription.billingMode === "installment"
+                ? `Cartão em ${subscription.installmentCount ?? "—"}x, renova em ${subscription.installmentCount ?? "—"}x`
+                : "Asaas"}
+            </p>
           </div>
         </div>
 
@@ -241,7 +269,15 @@ export function PlanManageModule() {
           </div>
         ) : null}
 
-        {!cancelScheduled && canUpgrade ? (
+        {subscription.billingMode === "installment" ? (
+          <div className="rounded-2xl bg-amber-50 text-amber-900 text-sm p-4">
+            {`Este plano foi parcelado no cartão. Em ${formatDate(subscription.endDate)} ele renova em ${subscription.installmentCount ?? "—"}x. A taxa do cartão entra de novo nessa cobrança.`}
+          </div>
+        ) : null}
+
+        {!cancelScheduled &&
+        canUpgrade &&
+        subscription.billingMode !== "installment" ? (
           <Link
             to="/conta/upgrade"
             search={
@@ -255,7 +291,7 @@ export function PlanManageModule() {
           </Link>
         ) : null}
 
-        {!cancelScheduled ? (
+        {!cancelScheduled && subscription.asaasSubscriptionId ? (
           <div className="space-y-3">
             {!confirmCancel ? (
               <button
@@ -263,14 +299,16 @@ export function PlanManageModule() {
                 onClick={() => setConfirmCancel(true)}
                 className="w-full rounded-2xl border border-red-200 bg-white py-3 text-sm font-semibold text-red-700 hover:bg-red-50"
               >
-                Cancelar assinatura
+                {subscription.billingMode === "installment"
+                  ? "Cancelar renovação"
+                  : "Cancelar assinatura"}
               </button>
             ) : (
               <div className="rounded-2xl border border-red-200 bg-red-50 p-4 space-y-3">
                 <p className="text-sm text-red-800">
-                  Confirma o cancelamento? A recorrência no Asaas para de cobrar
-                  e você mantém o acesso até o fim do período atual (
-                  {formatDate(subscription.endDate)}).
+                  {subscription.billingMode === "installment"
+                    ? `A renovação em ${subscription.installmentCount ?? "—"}x deixa de ser cobrada. O parcelamento deste período continua no cartão e o acesso segue até ${formatDate(subscription.endDate)}.`
+                    : `Confirma o cancelamento? A recorrência no Asaas para de cobrar e você mantém o acesso até o fim do período atual (${formatDate(subscription.endDate)}).`}
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   <button

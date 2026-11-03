@@ -178,6 +178,7 @@ export function OrderSummary({
   const navigate = useNavigate();
   const selectedPlan = useCheckoutStore((state) => state.selectedPlan);
   const appliedCoupon = useCheckoutStore((state) => state.appliedCoupon);
+  const cardFeeQuote = useCheckoutStore((state) => state.cardFeeQuote);
 
   if (!selectedPlan) {
     return (
@@ -201,9 +202,14 @@ export function OrderSummary({
   const periodLabel =
     selectedPlan.intervalLabel || planPeriodLabel(selectedPlan.interval);
   const couponDiscount = appliedCoupon?.discountAmount ?? 0;
-  const totalToday = appliedCoupon
+  const planTotal = appliedCoupon
     ? appliedCoupon.finalAmount
     : selectedPlan.price;
+  const cardFee =
+    cardFeeQuote && cardFeeQuote.count > 1
+      ? Math.max(0, cardFeeQuote.totalValue - planTotal)
+      : 0;
+  const totalToday = planTotal + cardFee;
   const renewalAmount = selectedPlan.price;
 
   return (
@@ -253,6 +259,17 @@ export function OrderSummary({
               </span>
             </div>
           ) : null}
+
+          {cardFee > 0 ? (
+            <div className="flex justify-between gap-3 items-center">
+              <span className="text-[var(--checkout-ink-2,#55647A)]">
+                Taxa do cartão
+              </span>
+              <span className="font-medium text-[var(--checkout-ink,#0F2846)] tabular-nums shrink-0">
+                {formatCurrency(cardFee)}
+              </span>
+            </div>
+          ) : null}
         </div>
 
         {showCoupon ? <CouponField /> : null}
@@ -281,9 +298,10 @@ export function OrderSummary({
               aria-hidden
             />
             <p className="text-xs leading-[1.45] text-[var(--checkout-ink-2,#55647A)]">
-              Renova automaticamente em {renewalDateLabel(selectedPlan.interval)}{" "}
-              por {formatCurrency(renewalAmount)}. Você pode cancelar a
-              qualquer momento pelo app.
+              {cardFeeQuote && cardFeeQuote.count > 1
+                ? `Renova em ${cardFeeQuote.count}x. A taxa do cartão entra de novo sobre o preço do plano.`
+                : `Renova automaticamente em ${renewalDateLabel(selectedPlan.interval)} por ${formatCurrency(renewalAmount)}.`}
+              {" "}Você pode cancelar a qualquer momento pelo app.
             </p>
           </div>
         ) : null}

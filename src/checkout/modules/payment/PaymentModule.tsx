@@ -11,6 +11,13 @@ import {
 import { PixPanel } from "./PixPanel";
 import { CardPanel } from "./CardPanel";
 import { BoletoPanel } from "./BoletoPanel";
+import {
+  InstallmentPicker,
+  type InstallmentQuoteOption,
+} from "./InstallmentPicker";
+import { maxCardInstallments } from "./card-installments";
+import { listAsaasInstallmentQuotes } from "../../../lib/api/asaas";
+import { mapPlanIntervalToPlanType } from "../../../lib/coupons";
 import { usePayment } from "../../../hooks/usePayment";
 import { getTrialDays } from "../../../lib/trial-days";
 import { resolveCheckoutDestination } from "../../shared/resolve-checkout-destination";
@@ -58,7 +65,16 @@ export function PaymentModule() {
   const bindCheckoutOwner = useCheckoutStore((state) => state.bindCheckoutOwner);
   const [authReady, setAuthReady] = useState(false);
   const [method, setMethod] = useState<PaymentMethod>("pix");
+  const [installmentCount, setInstallmentCount] = useState(1);
   const [card, setCard] = useState<CardCheckoutInput>(EMPTY_CARD);
+  const appliedCoupon = useCheckoutStore((state) => state.appliedCoupon);
+  const setCardFeeQuote = useCheckoutStore((state) => state.setCardFeeQuote);
+  const [installmentQuotes, setInstallmentQuotes] = useState<
+    InstallmentQuoteOption[]
+  >([]);
+  const [quotesLoading, setQuotesLoading] = useState(false);
+  const [quotesFailed, setQuotesFailed] = useState(false);
+  const [quotesRequestId, setQuotesRequestId] = useState(0);
   const [trialLoading, setTrialLoading] = useState(false);
   const [ineligibleReason, setIneligibleReason] = useState<string | null>(null);
 
@@ -73,8 +89,100 @@ export function PaymentModule() {
     startCheckout,
     verifyPaymentNow,
     clearError,
-  } = useAsaasCheckout(selectedPlan);
+  } = useAsaasCheckout(selectedPlan, installmentCount);
   const { handlePaymentWithStripe } = usePayment();
+  const payableAmount = appliedCoupon?.finalAmount ?? selectedPlan?.price ?? 0;
+
+  useEffect(() => {
+    if (!selectedPlan || maxCardInstallments(selectedPlan.interval) <= 1) {
+      setInstallmentQuotes([
+        {
+          count: 1,
+          installmentValue: payableAmount,
+          totalValue: payableAmount,
+        },
+      ]);
+      setQuotesLoading(false);
+      setQuotesFailed(false);
+      return;
+    }
+
+    let cancelled = false;
+    setQuotesLoading(true);
+    setQuotesFailed(false);
+
+    const loadQuotes = async (attempt: number) => {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data.session?.access_token;
+      if (!accessToken) {
+        if (!cancelled) setQuotesLoading(false);
+        return;
+      }
+      try {
+        const result = await listAsaasInstallmentQuotes(accessToken, {
+          planType: mapPlanIntervalToPlanType(selectedPlan.interval),
+          couponCode: appliedCoupon?.code,
+        });
+        if (!cancelled) {
+          setInstallmentQuotes(result.options);
+          setQuotesFailed(false);
+        }
+      } catch (quoteError) {
+        if (cancelled) return;
+        if (attempt < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          if (!cancelled) await loadQuotes(attempt + 1);
+          return;
+        }
+        setInstallmentQuotes([
+          {
+            count: 1,
+            installmentValue: payableAmount,
+            totalValue: payableAmount,
+          },
+        ]);
+        setQuotesFailed(true);
+        toast.error(
+          quoteError instanceof Error
+            ? quoteError.message
+            : "Não foi possível calcular as parcelas."
+        );
+      }
+    };
+
+    void loadQuotes(0).finally(() => {
+      if (!cancelled) setQuotesLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [appliedCoupon?.code, payableAmount, quotesRequestId, selectedPlan]);
+
+  useEffect(() => {
+    if (quotesLoading || installmentQuotes.length === 0) return;
+    if (!installmentQuotes.some((option) => option.count === installmentCount)) {
+      setInstallmentCount(1);
+    }
+  }, [installmentCount, installmentQuotes, quotesLoading]);
+
+  useEffect(() => {
+    if (method !== "credit_card") {
+      setCardFeeQuote(null);
+      return;
+    }
+    const selected = installmentQuotes.find(
+      (option) => option.count === installmentCount
+    );
+    if (!selected || selected.count <= 1) {
+      setCardFeeQuote(null);
+      return;
+    }
+    setCardFeeQuote({
+      count: selected.count,
+      totalValue: selected.totalValue,
+    });
+  }, [installmentCount, installmentQuotes, method, setCardFeeQuote]);
 
   useEffect(() => {
     if (!checkoutHydrated) return;
@@ -234,6 +342,11 @@ export function PaymentModule() {
 
         {METHODS.map((item) => {
           const open = method === item.id;
+          const cardInstallmentMax = maxCardInstallments(selectedPlan.interval);
+          const subtitle =
+            item.id === "credit_card" && cardInstallmentMax > 1
+              ? "À vista no preço do plano, ou parcelado com a taxa do cartão"
+              : item.subtitle;
           return (
             <div
               key={item.id}
@@ -252,7 +365,7 @@ export function PaymentModule() {
                 }}
               >
                 <p className="font-bold text-slate-900">{item.title}</p>
-                <p className="text-xs text-slate-500 mt-0.5">{item.subtitle}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>
               </button>
 
               {open ? (
@@ -272,15 +385,43 @@ export function PaymentModule() {
                     />
                   ) : null}
                   {item.id === "credit_card" ? (
-                    <CardPanel
-                      value={card}
-                      onChange={setCard}
-                      loading={loading}
-                      awaitingConfirmation={awaitingCardConfirmation}
-                      verifying={verifying}
-                      onVerifyPayment={verifyPaymentNow}
-                      onSubmit={() => startCheckout("credit_card", card)}
-                    />
+                    <div className="space-y-3">
+                      {cardInstallmentMax > 1 ? (
+                        <>
+                          <InstallmentPicker
+                            options={installmentQuotes}
+                            loading={quotesLoading}
+                            value={installmentCount}
+                            onChange={setInstallmentCount}
+                          />
+                          {quotesFailed && !quotesLoading ? (
+                            <button
+                              type="button"
+                              className="text-xs font-semibold text-brand-accent"
+                              onClick={() =>
+                                setQuotesRequestId((current) => current + 1)
+                              }
+                            >
+                              Calcular parcelas de novo
+                            </button>
+                          ) : null}
+                        </>
+                      ) : null}
+                      <CardPanel
+                        value={card}
+                        onChange={setCard}
+                        loading={loading}
+                        awaitingConfirmation={awaitingCardConfirmation}
+                        verifying={verifying}
+                        onVerifyPayment={verifyPaymentNow}
+                        submitLabel={
+                          installmentCount > 1 && cardInstallmentMax > 1
+                            ? `Pagar em ${installmentCount}x`
+                            : "Pagar com cartão"
+                        }
+                        onSubmit={() => startCheckout("credit_card", card)}
+                      />
+                    </div>
                   ) : null}
                   {item.id === "boleto" ? (
                     <BoletoPanel

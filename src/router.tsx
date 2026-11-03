@@ -142,7 +142,7 @@ const plansRedirectRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/plans",
   beforeLoad: () => {
-    throw redirect({ to: "/planos" });
+    throw redirect({ to: "/planos", hash: true });
   },
   component: () => null,
 });

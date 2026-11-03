@@ -64,6 +64,66 @@ function errorMessageFromBody(data: unknown, fallback: string): string {
   return fallback;
 }
 
+export async function createAsaasInstallment(
+  accessToken: string,
+  input: CreateAsaasSubscriptionInput & { installmentCount: number }
+): Promise<AsaasSubscriptionResponse> {
+  const response = await fetch(
+    `${SUPABASE_URL}/functions/v1/create-asaas-installment`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+        apikey: SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify(input),
+    }
+  );
+
+  const data = await parseJsonResponse(response);
+  if (!response.ok) {
+    throw new Error(
+      errorMessageFromBody(data, "Erro ao criar parcelamento no cartão.")
+    );
+  }
+  return data as AsaasSubscriptionResponse;
+}
+
+export interface AsaasInstallmentQuoteOption {
+  count: number;
+  installmentValue: number;
+  totalValue: number;
+}
+
+export async function listAsaasInstallmentQuotes(
+  accessToken: string,
+  input: { planType: string; couponCode?: string | null }
+): Promise<{ netAmount: number; options: AsaasInstallmentQuoteOption[] }> {
+  const response = await fetch(
+    `${SUPABASE_URL}/functions/v1/list-asaas-installment-quotes`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+        apikey: SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({
+        planType: input.planType,
+        couponCode: input.couponCode ?? null,
+      }),
+    }
+  );
+  const data = await parseJsonResponse(response);
+  if (!response.ok) {
+    throw new Error(
+      errorMessageFromBody(data, "Não foi possível calcular as parcelas.")
+    );
+  }
+  return data as { netAmount: number; options: AsaasInstallmentQuoteOption[] };
+}
+
 export async function createAsaasSubscription(
   accessToken: string,
   input: CreateAsaasSubscriptionInput
