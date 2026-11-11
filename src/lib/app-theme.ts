@@ -403,13 +403,17 @@ export function buildCheckoutThemeCssVariables(
 ): Record<string, string> {
   const theme = mergeAdminThemeConfig(config);
   const base = buildAdminThemeCssVariables(theme);
-  const ink = pick(
+  const pageInk = pick(
     theme.layout_text_primary || theme.card_text_color,
     ADMIN_DEFAULT_THEME.layout_text_primary!
   );
-  const ink2 = pick(
-    theme.layout_text_secondary || theme.card_text_secondary,
-    ADMIN_DEFAULT_THEME.layout_text_secondary!
+  const surfaceInk = pick(theme.card_text_color, pageInk);
+  const surfaceInk2 = pick(
+    theme.card_text_secondary,
+    pick(
+      theme.layout_text_secondary,
+      ADMIN_DEFAULT_THEME.layout_text_secondary!
+    )
   );
   const line = pick(
     theme.layout_card_border || theme.card_border_color,
@@ -431,15 +435,15 @@ export function buildCheckoutThemeCssVariables(
   return {
     ...base,
     "--register-bg": canvas,
-    "--layout-text-on-card": ink,
-    "--checkout-ink": ink,
-    "--checkout-ink-2": ink2,
-    "--checkout-ink-3": `color-mix(in srgb, ${ink2} 75%, white)`,
-    "--checkout-sunken": `color-mix(in srgb, ${canvas} 85%, ${ink} 15%)`,
+    "--layout-text-on-card": surfaceInk,
+    "--checkout-ink": surfaceInk,
+    "--checkout-ink-2": surfaceInk2,
+    "--checkout-ink-3": `color-mix(in srgb, ${surfaceInk2} 75%, white)`,
+    "--checkout-sunken": `color-mix(in srgb, ${canvas} 85%, ${surfaceInk} 15%)`,
     "--checkout-line": line,
-    "--checkout-line-strong": `color-mix(in srgb, ${line} 70%, ${ink} 30%)`,
+    "--checkout-line-strong": `color-mix(in srgb, ${line} 70%, ${surfaceInk} 30%)`,
     "--checkout-primary-soft": `color-mix(in srgb, ${buttonBg} 12%, white)`,
-    "--checkout-navy-deep": ink,
+    "--checkout-navy-deep": surfaceInk,
     "--checkout-success": pick(
       theme.checkmark_color,
       ADMIN_DEFAULT_THEME.checkmark_color!
