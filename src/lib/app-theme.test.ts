@@ -60,7 +60,8 @@ describe("admin theme mapping", () => {
       layout_card_border: "#E5E7EB",
     });
 
-    expect(vars["--checkout-ink"]).toBe("#111827");
+    expect(vars["--layout-text-primary"]).toBe("#111827");
+    expect(vars["--checkout-ink"]).toBe("#1F2937");
     expect(vars["--checkout-ink-2"]).toBe("#6B7280");
     expect(vars["--checkout-line"]).toBe("#E5E7EB");
     expect(vars["--brand-accent"]).toBe("#0F172A");

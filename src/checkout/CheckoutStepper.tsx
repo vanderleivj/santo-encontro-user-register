@@ -42,8 +42,8 @@ export function CheckoutStepper({
                     done
                       ? "bg-[var(--checkout-success,#15803D)] text-white"
                       : active
-                        ? "bg-[var(--brand-accent)] text-white"
-                        : "bg-[var(--checkout-sunken,#F4EFE7)] text-[var(--checkout-ink-3,#8493A6)]"
+                        ? "bg-[var(--button-primary-bg,var(--brand-accent))] text-[var(--button-primary-text,#fff)]"
+                        : "bg-[color-mix(in_srgb,var(--layout-text-primary,#F6F1E7)_12%,transparent)] text-[var(--layout-text-secondary,#C9C2B6)]"
                   }`}
                 >
                   {done ? (
@@ -55,10 +55,10 @@ export function CheckoutStepper({
                 <span
                   className={`text-sm whitespace-nowrap ${
                     active
-                      ? "font-semibold text-[var(--checkout-ink,#0F2846)]"
+                      ? "font-semibold text-[var(--layout-text-primary,var(--checkout-ink,#0F2846))]"
                       : done
-                        ? "font-normal text-[var(--checkout-ink-2,#55647A)]"
-                        : "font-normal text-[var(--checkout-ink-3,#8493A6)]"
+                        ? "font-normal text-[var(--layout-text-secondary,var(--checkout-ink-2,#55647A))]"
+                        : "font-normal text-[var(--layout-text-secondary,var(--checkout-ink-3,#8493A6))]"
                   }`}
                 >
                   {step.label}
@@ -66,7 +66,7 @@ export function CheckoutStepper({
               </div>
               {index < STEPS.length - 1 ? (
                 <div
-                  className="w-12 h-px bg-[var(--checkout-line-strong,#CFC5B6)] shrink-0"
+                  className="w-12 h-px bg-[color-mix(in_srgb,var(--layout-text-primary,#F6F1E7)_25%,transparent)] shrink-0"
                   aria-hidden
                 />
               ) : null}

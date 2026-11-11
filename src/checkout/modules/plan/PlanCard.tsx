@@ -44,10 +44,10 @@ export function PlanCard({
     <button
       type="button"
       onClick={onSelect}
-      className={`relative w-full text-left rounded-2xl border bg-white p-6 transition-all ${
+      className={`relative w-full text-left rounded-2xl border bg-[var(--layout-card-bg,#fff)] p-6 transition-all ${
         selected
           ? "border-2 border-[var(--brand-accent)] shadow-[0_8px_24px_-6px_var(--layout-shadow)]"
-          : "border border-[var(--checkout-line-strong,#CFC5B6)] hover:border-[var(--checkout-ink-3)]"
+          : "border border-[var(--card-border,var(--checkout-line-strong,#CFC5B6))] hover:border-[var(--card-border-hover,var(--brand-accent))]"
       }`}
     >
       <div className="flex items-start justify-between gap-3 mb-4">
@@ -56,38 +56,38 @@ export function PlanCard({
             className={`w-[22px] h-[22px] rounded-full border flex items-center justify-center shrink-0 ${
               selected
                 ? "border-[var(--brand-accent)] bg-[var(--brand-accent)]"
-                : "border-[1.5px] border-[var(--checkout-line-strong,#CFC5B6)] bg-white"
+                : "border-[1.5px] border-[var(--card-border,var(--checkout-line-strong,#CFC5B6))] bg-[var(--layout-card-bg,#fff)]"
             }`}
           >
             {selected ? (
-              <span className="w-2 h-2 rounded-full bg-white" />
+              <span className="w-2 h-2 rounded-full bg-[var(--button-primary-text,#fff)]" />
             ) : null}
           </span>
-          <h3 className="font-[family-name:var(--font-display)] text-xl font-semibold text-[var(--checkout-ink,#0F2846)] truncate">
+          <h3 className="font-[family-name:var(--font-display)] text-xl font-semibold text-[var(--card-text,var(--checkout-ink,#0F2846))] truncate">
             {plan.name}
           </h3>
         </div>
         {plan.isPopular ? (
-          <span className="shrink-0 px-2 py-0.5 rounded-full bg-[var(--checkout-primary-soft,#FFF1E7)] text-[var(--brand-accent-hover,#9A3412)] text-xs font-bold">
+          <span className="shrink-0 px-2 py-0.5 rounded-full bg-[var(--badge-popular-bg,#161616)] text-[var(--badge-popular-text,#F6F1E7)] text-xs font-bold">
             {popularLabel}
           </span>
         ) : null}
       </div>
 
       <div className="flex items-end gap-1 mb-3 flex-wrap">
-        <span className="text-[19px] font-semibold text-[var(--checkout-ink,#0F2846)] leading-[1.35] mb-1">
+        <span className="text-[19px] font-semibold text-[var(--price-currency,var(--card-text,#161616))] leading-[1.35] mb-1">
           R$
         </span>
-        <span className="font-[family-name:var(--font-display)] text-[42px] font-semibold text-[var(--checkout-ink,#0F2846)] tabular-nums leading-none">
+        <span className="font-[family-name:var(--font-display)] text-[42px] font-semibold text-[var(--price-discount,var(--card-text,#161616))] tabular-nums leading-none">
           {reais},{cents}
         </span>
-        <span className="text-[15px] text-[var(--checkout-ink-2,#55647A)] leading-[2] mb-0.5">
+        <span className="text-[15px] text-[var(--card-text-secondary,var(--checkout-ink-2,#55647A))] leading-[2] mb-0.5">
           /{intervalSuffix}
         </span>
       </div>
 
       {monthlyHint ? (
-        <p className="text-sm text-[var(--checkout-ink-2,#55647A)] mb-4">
+        <p className="text-sm text-[var(--card-text-secondary,var(--checkout-ink-2,#55647A))] mb-4">
           {monthlyHint}
         </p>
       ) : null}
@@ -112,9 +112,9 @@ export function PlanCard({
               .map((feature) => (
                 <li
                   key={feature}
-                  className="flex items-start gap-2 text-sm text-[var(--checkout-ink,#0F2846)]"
+                  className="flex items-start gap-2 text-sm text-[var(--card-text,var(--checkout-ink,#0F2846))]"
                 >
-                  <Check className="w-4 h-4 text-[var(--brand-accent)] shrink-0 mt-0.5" />
+                  <Check className="w-4 h-4 text-[var(--checkmark-color,var(--brand-accent))] shrink-0 mt-0.5" />
                   <span>{feature}</span>
                 </li>
               ))}
